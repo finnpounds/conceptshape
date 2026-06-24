@@ -5,10 +5,10 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Link shown in the About panel + sidebar. Update once the repo is public.
+// Link shown in the About panel + sidebar.
 export const GITHUB_URL =
   process.env.NEXT_PUBLIC_GITHUB_URL ||
-  "https://github.com/your-username/semantic-geometry-explorer";
+  "https://github.com/finnpounds/conceptshape";
 
 // Whether a live backend is expected to exist for custom input. When false
 // (e.g. a gallery-only deploy), the UI nudges visitors toward the tour.
