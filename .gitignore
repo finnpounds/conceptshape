@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model cache (large files)
+*.pt
+*.bin
+*.safetensors
+
+# Output data
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!**/launch.json
+!**/settings.json
+# Precomputed showcase gallery — MUST be committed so the deployed site works
+# with no backend.
+!frontend/public/gallery/
+!frontend/public/gallery/**/*.json
+
+# Build artifacts
+*.tsbuildinfo
+*.tar.gz

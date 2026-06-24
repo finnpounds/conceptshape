@@ -1,0 +1,155 @@
+{
+  "models": {
+    "supported": [
+      "pythia-70m",
+      "gpt2",
+      "pythia-160m"
+    ],
+    "loaded": [
+      "pythia-70m"
+    ]
+  },
+  "examples": [
+    {
+      "id": "cogito",
+      "mode": "explore",
+      "subMode": "absolute",
+      "title": "Cogito, ergo sum",
+      "hook": "Watch a sentence fan out through 6 layers of a transformer.",
+      "detail": "Every word starts as a point. As it flows through the model's layers, it moves \u2014 picking up context from its neighbours. Each colored trail is one word's journey through the model's internal space. Drag to orbit; scrub the layer slider to replay the motion.",
+      "params": {
+        "text": "I think therefore I am",
+        "method": "pca"
+      },
+      "file": "cogito.json"
+    },
+    {
+      "id": "river",
+      "mode": "explore",
+      "subMode": "absolute",
+      "title": "Context bends meaning",
+      "hook": "The same word lands in different places depending on its sentence.",
+      "detail": "Turn on attention edges to see which words are 'looking at' which other words at each layer \u2014 the wiring the model uses to mix meaning together.",
+      "params": {
+        "text": "The river bank was steep but the money bank was closed",
+        "method": "pca"
+      },
+      "file": "river.json"
+    },
+    {
+      "id": "anchors",
+      "mode": "explore",
+      "subMode": "anchor",
+      "title": "Words as distances to ideas",
+      "hook": "Re-measure every word by how close it sits to reference concepts.",
+      "detail": "Instead of raw coordinates, each word is described by its distance to a few 'anchor' concepts \u2014 here self, other, world, and logic. This turns an opaque 512-dimensional space into something you can actually read.",
+      "params": {
+        "text": "I think therefore I am",
+        "anchors": [
+          "self",
+          "other",
+          "world",
+          "logic"
+        ]
+      },
+      "file": "anchors.json"
+    },
+    {
+      "id": "convergence",
+      "mode": "explore",
+      "subMode": "compare",
+      "title": "Do different models agree?",
+      "hook": "Two models, same sentence \u2014 do they build the same geometry?",
+      "detail": "The Platonic Representation Hypothesis says different models converge on the same internal structure. Here Pythia-70M and GPT-2 process the same sentence; the CKA bars measure how aligned their geometry is at each depth.",
+      "params": {
+        "text": "I think therefore I am",
+        "models": [
+          "pythia-70m",
+          "gpt2"
+        ],
+        "anchors": [
+          "self",
+          "other",
+          "world",
+          "logic"
+        ]
+      },
+      "file": "convergence.json"
+    },
+    {
+      "id": "concept-map",
+      "mode": "explore",
+      "subMode": "probe",
+      "title": "A map of concepts",
+      "hook": "Embed dozens of concepts in the same space and watch them sort themselves.",
+      "detail": "Each point is a concept (love, fear, truth, time...) placed by its distance to the anchors. Emotions cluster with emotions, abstractions with abstractions \u2014 structure the model was never explicitly taught.",
+      "params": {
+        "anchors": [
+          "self",
+          "other",
+          "world",
+          "logic"
+        ],
+        "probes": [
+          "love",
+          "fear",
+          "joy",
+          "anger",
+          "sadness",
+          "hope",
+          "trust",
+          "guilt",
+          "pride",
+          "shame",
+          "truth",
+          "justice",
+          "beauty",
+          "freedom",
+          "time",
+          "death",
+          "life",
+          "power",
+          "knowledge",
+          "meaning",
+          "thought",
+          "belief",
+          "desire",
+          "memory",
+          "dream",
+          "consciousness",
+          "reason",
+          "will",
+          "perception"
+        ],
+        "model": "pythia-70m"
+      },
+      "file": "concept-map.json"
+    },
+    {
+      "id": "text-shapes",
+      "mode": "corpus",
+      "subMode": "corpus",
+      "title": "The shape of a text",
+      "hook": "Different kinds of writing have measurably different geometric shape.",
+      "detail": "Each text becomes a cloud of token activations. Persistent homology measures the cloud's topology \u2014 its connected pieces and loops \u2014 producing a 'shape fingerprint'. The distance matrix shows philosophy, recipe, poetry, and physics are genuinely distinct shapes.",
+      "params": {
+        "texts": [
+          "I think, therefore I am. The mind is a substance that thinks. The body is a substance that is extended in space. These two substances are distinct and separate. Doubt is the beginning of wisdom.",
+          "Preheat the oven to 375 degrees. Mix the flour, sugar, and butter in a bowl until crumbly. Add the eggs and vanilla. Stir until smooth. Pour the batter into a greased pan. Bake for 30 minutes until golden brown.",
+          "Shall I compare thee to a summer's day? Thou art more lovely and more temperate. Rough winds do shake the darling buds of May, and summer's lease hath all too short a date.",
+          "The force between two masses is proportional to the product of their masses and inversely proportional to the square of the distance between them. This law governs the motion of planets and the tides of the ocean."
+        ],
+        "labels": [
+          "Philosophy",
+          "Recipe",
+          "Poetry",
+          "Physics"
+        ],
+        "layer": -1,
+        "max_points": 1500,
+        "metric": "wasserstein"
+      },
+      "file": "text-shapes.json"
+    }
+  ]
+}
