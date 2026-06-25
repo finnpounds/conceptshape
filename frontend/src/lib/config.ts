@@ -1,9 +1,25 @@
 // Central place for deploy-time configuration.
 // These are read at build time from NEXT_PUBLIC_* env vars (set in Vercel),
-// with sensible local-dev fallbacks.
+// with sensible fallbacks.
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Deployed ML backend (Hugging Face Space). Used in production when no explicit
+// NEXT_PUBLIC_API_URL is set.
+const PROD_API_URL = "https://finnpounds-conceptshape-backend.hf.space";
+
+// Resolve the backend base URL:
+//   1. explicit NEXT_PUBLIC_API_URL wins (any environment)
+//   2. in a deployed browser (non-localhost host) → the HF Space
+//   3. otherwise → local dev backend
+function resolveApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    if (h !== "localhost" && h !== "127.0.0.1") return PROD_API_URL;
+  }
+  return "http://localhost:8000";
+}
+
+export const API_BASE = resolveApiBase();
 
 // Link shown in the About panel + sidebar.
 export const GITHUB_URL =
