@@ -41,6 +41,8 @@ Thumbs.db
 # with no backend.
 !frontend/public/gallery/
 !frontend/public/gallery/**/*.json
+# Experiment corpora + results — committed for reproducibility of docs/experiments.md
+!backend/scripts/ai_topology_*.json
 
 # Build artifacts
 *.tsbuildinfo

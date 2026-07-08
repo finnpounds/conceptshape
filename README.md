@@ -26,10 +26,23 @@ Five things to explore:
 | **Cross-model compare** | Do *different models* build the same internal geometry? (CKA + Procrustes) |
 | **Concept probe** | Drop dozens of concepts into the space — do they self-organize by meaning? |
 | **Corpus topology** | Does philosophy have a different *topological shape* than poetry or physics? (persistent homology) |
+| **Training time-lapse** | Watch concept geometry crystallize across a model's training run (300B tokens) |
 
 The research question behind it: the **Platonic Representation Hypothesis** — the
 idea that models trained differently converge on the same underlying geometry of
 meaning.
+
+## Experiments
+
+Small, honest studies run with the tool's own backend — full writeups in
+[docs/experiments.md](docs/experiments.md):
+
+- **Where does a transformer disambiguate a word?** Pythia-70M splits the two
+  senses of *bank* in the middle of the stack; GPT-2 waits until its final layer.
+- **Can activation topology detect AI text?** A cautionary tale — a
+  perfect-looking 100% separation that dissolves, under layer/metric sweeps and a
+  homology-dimension decomposition, into a single era-confounded scalar. A study
+  that fails the right way.
 
 ## How it's deployed (and why it always works)
 

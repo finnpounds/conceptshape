@@ -1,0 +1,40 @@
+{
+  "target_tokens": 316,
+  "sweep": [
+    {
+      "layer": -1,
+      "metric": "wasserstein",
+      "separation": 2.2228,
+      "p_exact": 0.0286,
+      "loo_nn_accuracy": 1.0
+    },
+    {
+      "layer": 3,
+      "metric": "wasserstein",
+      "separation": 0.0994,
+      "p_exact": 0.3714,
+      "loo_nn_accuracy": 0.375
+    },
+    {
+      "layer": 1,
+      "metric": "wasserstein",
+      "separation": 0.4428,
+      "p_exact": 0.1714,
+      "loo_nn_accuracy": 0.375
+    },
+    {
+      "layer": -1,
+      "metric": "bottleneck",
+      "separation": 0.0043,
+      "p_exact": 0.1714,
+      "loo_nn_accuracy": 0.75
+    },
+    {
+      "layer": 3,
+      "metric": "bottleneck",
+      "separation": 0.0029,
+      "p_exact": 0.2286,
+      "loo_nn_accuracy": 0.625
+    }
+  ]
+}

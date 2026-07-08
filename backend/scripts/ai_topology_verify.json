@@ -1,0 +1,34 @@
+{
+  "combined": {
+    "separation": 2.2228253607462314,
+    "p_exact": 0.02857142857142857,
+    "loo_nn": 1.0
+  },
+  "h0_only": {
+    "separation": 6.698577928012005,
+    "p_exact": 0.02857142857142857,
+    "loo_nn": 1.0
+  },
+  "h1_only": {
+    "separation": 0.30464568906090106,
+    "p_exact": 0.02857142857142857,
+    "loo_nn": 0.75
+  },
+  "scalar_1d": {
+    "separation": 0.024590841325526486,
+    "p_exact": 0.02857142857142857,
+    "loo_nn": 1.0
+  },
+  "scalar_vs_combined_r": 0.9797064963429724,
+  "spread_by_text": {
+    "H_individualism": 0.32031372623353066,
+    "H_natural_selection": 0.32778182173077064,
+    "H_simple_living": 0.31315543285653563,
+    "H_the_river": 0.2837393604501893,
+    "A_individualism": 0.34721923138521893,
+    "A_natural_selection": 0.3946002257775657,
+    "A_simple_living": 0.35937951976739907,
+    "A_the_river": 0.34361847197707696
+  },
+  "spread_separable_by_one_number": true
+}

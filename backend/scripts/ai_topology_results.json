@@ -1,0 +1,271 @@
+{
+  "n_texts": 8,
+  "target_tokens": 316,
+  "raw_token_counts": [
+    355,
+    353,
+    334,
+    377,
+    350,
+    340,
+    316,
+    350
+  ],
+  "ids": [
+    "H_individualism",
+    "H_natural_selection",
+    "H_simple_living",
+    "H_the_river",
+    "A_individualism",
+    "A_natural_selection",
+    "A_simple_living",
+    "A_the_river"
+  ],
+  "labels": [
+    "human",
+    "human",
+    "human",
+    "human",
+    "ai",
+    "ai",
+    "ai",
+    "ai"
+  ],
+  "topics": [
+    "individualism",
+    "natural_selection",
+    "simple_living",
+    "the_river",
+    "individualism",
+    "natural_selection",
+    "simple_living",
+    "the_river"
+  ],
+  "distance_matrix": [
+    [
+      0.0,
+      2.7589218719731834,
+      2.716323620740442,
+      5.129603055105284,
+      4.564804826782011,
+      10.168741586804964,
+      5.490830064171842,
+      4.245914772200529
+    ],
+    [
+      2.7589218719731834,
+      0.0,
+      3.4201644294772793,
+      5.5941583476696985,
+      3.931388062750081,
+      9.435547022021087,
+      4.8963253457408245,
+      3.7109228483911276
+    ],
+    [
+      2.716323620740442,
+      3.4201644294772793,
+      0.0,
+      4.65159721220581,
+      5.415970058186375,
+      10.877041083444132,
+      6.269005527596371,
+      5.0014572604522884
+    ],
+    [
+      5.129603055105284,
+      5.5941583476696985,
+      4.65159721220581,
+      0.0,
+      7.787142904204519,
+      12.854973422287678,
+      8.540817446954055,
+      7.283503296157173
+    ],
+    [
+      4.564804826782011,
+      3.931388062750081,
+      5.415970058186375,
+      7.787142904204519,
+      0.0,
+      7.374027594066427,
+      3.824881418689298,
+      2.9326180123585512
+    ],
+    [
+      10.168741586804964,
+      9.435547022021087,
+      10.877041083444132,
+      12.854973422287678,
+      7.374027594066427,
+      0.0,
+      6.548562046204795,
+      7.663194634655529
+    ],
+    [
+      5.490830064171842,
+      4.8963253457408245,
+      6.269005527596371,
+      8.540817446954055,
+      3.824881418689298,
+      6.548562046204795,
+      0.0,
+      3.567832574007708
+    ],
+    [
+      4.245914772200529,
+      3.7109228483911276,
+      5.0014572604522884,
+      7.283503296157173,
+      2.9326180123585512,
+      7.663194634655529,
+      3.567832574007708,
+      0.0
+    ]
+  ],
+  "shapes_summary": [
+    {
+      "id": "H_individualism",
+      "author_type": "human",
+      "topic": "individualism",
+      "n_components": 316,
+      "n_loops": 136,
+      "n_points": 317
+    },
+    {
+      "id": "H_natural_selection",
+      "author_type": "human",
+      "topic": "natural_selection",
+      "n_components": 316,
+      "n_loops": 124,
+      "n_points": 317
+    },
+    {
+      "id": "H_simple_living",
+      "author_type": "human",
+      "topic": "simple_living",
+      "n_components": 316,
+      "n_loops": 153,
+      "n_points": 317
+    },
+    {
+      "id": "H_the_river",
+      "author_type": "human",
+      "topic": "the_river",
+      "n_components": 316,
+      "n_loops": 133,
+      "n_points": 317
+    },
+    {
+      "id": "A_individualism",
+      "author_type": "ai",
+      "topic": "individualism",
+      "n_components": 316,
+      "n_loops": 168,
+      "n_points": 317
+    },
+    {
+      "id": "A_natural_selection",
+      "author_type": "ai",
+      "topic": "natural_selection",
+      "n_components": 316,
+      "n_loops": 198,
+      "n_points": 317
+    },
+    {
+      "id": "A_simple_living",
+      "author_type": "ai",
+      "topic": "simple_living",
+      "n_components": 316,
+      "n_loops": 123,
+      "n_points": 317
+    },
+    {
+      "id": "A_the_river",
+      "author_type": "ai",
+      "topic": "the_river",
+      "n_components": 316,
+      "n_loops": 154,
+      "n_points": 317
+    }
+  ],
+  "surface_features": [
+    {
+      "id": "H_individualism",
+      "author_type": "human",
+      "type_token_ratio": 0.5801526717557252,
+      "mean_word_len": 4.148854961832061,
+      "punct_density": 0.1297709923664122,
+      "mean_sentence_len_words": 16.375
+    },
+    {
+      "id": "H_natural_selection",
+      "author_type": "human",
+      "type_token_ratio": 0.603112840466926,
+      "mean_word_len": 4.603112840466926,
+      "punct_density": 0.14396887159533073,
+      "mean_sentence_len_words": 42.833333333333336
+    },
+    {
+      "id": "H_simple_living",
+      "author_type": "human",
+      "type_token_ratio": 0.5503875968992248,
+      "mean_word_len": 3.7868217054263567,
+      "punct_density": 0.13178294573643412,
+      "mean_sentence_len_words": 51.6
+    },
+    {
+      "id": "H_the_river",
+      "author_type": "human",
+      "type_token_ratio": 0.5294117647058824,
+      "mean_word_len": 4.568627450980392,
+      "punct_density": 0.18823529411764706,
+      "mean_sentence_len_words": 25.5
+    },
+    {
+      "id": "A_individualism",
+      "author_type": "ai",
+      "type_token_ratio": 0.5836431226765799,
+      "mean_word_len": 4.516728624535316,
+      "punct_density": 0.11895910780669144,
+      "mean_sentence_len_words": 14.944444444444445
+    },
+    {
+      "id": "A_natural_selection",
+      "author_type": "ai",
+      "type_token_ratio": 0.7137404580152672,
+      "mean_word_len": 5.2748091603053435,
+      "punct_density": 0.13358778625954199,
+      "mean_sentence_len_words": 18.714285714285715
+    },
+    {
+      "id": "A_simple_living",
+      "author_type": "ai",
+      "type_token_ratio": 0.5904059040590406,
+      "mean_word_len": 4.461254612546125,
+      "punct_density": 0.11439114391143912,
+      "mean_sentence_len_words": 18.066666666666666
+    },
+    {
+      "id": "A_the_river",
+      "author_type": "ai",
+      "type_token_ratio": 0.6349809885931559,
+      "mean_word_len": 4.665399239543726,
+      "punct_density": 0.12927756653992395,
+      "mean_sentence_len_words": 17.533333333333335
+    }
+  ],
+  "results": {
+    "within_human_mean_dist": 4.045128089528617,
+    "within_ai_mean_dist": 5.318519379997052,
+    "within_all_mean_dist": 4.681823734762834,
+    "cross_mean_dist": 6.904649095509066,
+    "separation_stat": 2.2228253607462314,
+    "separation_p_exact": 0.02857142857142857,
+    "n_permutations": 35,
+    "topology_loo_nn_accuracy": 1.0,
+    "topology_nn_p_exact": 0.02857142857142857,
+    "confound_loo_nn_accuracy": 0.75,
+    "topology_vs_confound_mantel_r": 0.688127465623935
+  }
+}
