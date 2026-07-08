@@ -7,6 +7,7 @@
 
 import { useExplorerStore } from "@/store/explorer";
 import { useCorpusStore, type TextShapeResult } from "@/store/corpus";
+import { useTrainingStore } from "@/store/training";
 import { useUIStore } from "@/store/ui";
 import type {
   AnalyzeResponse,
@@ -16,14 +17,15 @@ import type {
   CorpusCompareResponse,
 } from "./api";
 
-export type GalleryMode = "explore" | "corpus" | "song";
+export type GalleryMode = "explore" | "corpus" | "song" | "training";
 export type GallerySubMode =
   | "absolute"
   | "anchor"
   | "compare"
   | "probe"
   | "corpus"
-  | "song";
+  | "song"
+  | "training";
 
 export interface GalleryEntry {
   id: string;
@@ -159,6 +161,11 @@ export async function applyExample(entry: GalleryEntry): Promise<void> {
       labels: d.labels,
       metric: d.metric,
     });
+  } else if (entry.mode === "training") {
+    ui.setAppMode("training");
+    const training = useTrainingStore.getState();
+    await training.load();
+    training.replay(); // restart the time-lapse from step 0 for the tour
   } else if (entry.mode === "song") {
     ui.setAppMode("song");
     // Song mode is interactive-with-audio and is served via the live backend.

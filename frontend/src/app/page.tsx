@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Controls from "@/components/Controls";
 import CorpusControls from "@/components/CorpusControls";
 import SongControls from "@/components/SongControls";
+import TrainingControls from "@/components/TrainingControls";
 import Hero from "@/components/Hero";
 import Tour from "@/components/Tour";
 import AboutPanel from "@/components/AboutPanel";
@@ -15,6 +16,7 @@ import { GITHUB_URL } from "@/lib/config";
 const Viewport = dynamic(() => import("@/components/Viewport"), { ssr: false });
 const CorpusViewport = dynamic(() => import("@/components/CorpusViewport"), { ssr: false });
 const SongViewport = dynamic(() => import("@/components/SongViewport"), { ssr: false });
+const TrainingViewport = dynamic(() => import("@/components/TrainingViewport"), { ssr: false });
 
 export default function Home() {
   const { appMode, setAppMode, startTour, setShowAbout } = useUIStore();
@@ -64,6 +66,13 @@ export default function Home() {
             >
               Song
             </button>
+            <button
+              className={`method-btn ${appMode === "training" ? "active" : ""}`}
+              onClick={() => setAppMode("training")}
+              title="Watch concept geometry crystallize across 300B tokens of training"
+            >
+              Training
+            </button>
           </div>
 
           <BackendStatus />
@@ -71,13 +80,15 @@ export default function Home() {
 
         {appMode === "explore" ? <Controls /> :
          appMode === "corpus" ? <CorpusControls /> :
-         <SongControls />}
+         appMode === "song" ? <SongControls /> :
+         <TrainingControls />}
       </div>
 
       <div className="viewport-area">
         {appMode === "explore" ? <Viewport /> :
          appMode === "corpus" ? <CorpusViewport /> :
-         <SongViewport />}
+         appMode === "song" ? <SongViewport /> :
+         <TrainingViewport />}
 
         {/* Showcase overlays live above the active viewport */}
         <Tour />

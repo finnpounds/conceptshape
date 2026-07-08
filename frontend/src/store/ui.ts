@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppMode = "explore" | "corpus" | "song";
+export type AppMode = "explore" | "corpus" | "song" | "training";
 
 // Backend reachability for the live "type your own" path.
 //   unknown   — not yet checked

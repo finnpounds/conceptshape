@@ -62,6 +62,11 @@ export default function AboutPanel() {
             <b>Corpus topology</b> — persistent homology gives each text a
             “shape fingerprint”; compare philosophy vs poetry vs physics.
           </li>
+          <li>
+            <b>Training time-lapse</b> — the same model re-loaded at nine
+            checkpoints across its training run: watch the concept map
+            crystallize out of noise over 300 billion tokens.
+          </li>
         </ul>
 
         <h3 className="about-h3">The question behind it</h3>

@@ -181,6 +181,29 @@ def main() -> None:
             "file": fname,
         })
 
+    # Static tour entries whose data files are produced by other scripts
+    # (no API call needed here — just referenced in the manifest).
+    if (OUT / "training.json").exists():
+        manifest["examples"].append({
+            "id": "training-lapse",
+            "mode": "training",
+            "subMode": "training",
+            "title": "Watch a model learn",
+            "hook": "300 billion tokens of training, compressed into ten seconds.",
+            "detail": (
+                "The same model, re-loaded at nine checkpoints across its training "
+                "run. Every point is a concept placed by its distance to the anchors. "
+                "At step 0 the geometry is random noise — press play and watch the "
+                "map of meaning crystallize. The bars show how similar each "
+                "checkpoint's geometry is to the finished model: it stays near-random "
+                "for the first ~8 billion tokens, then snaps into place late."
+            ),
+            "params": {},
+            "file": "training.json",
+        })
+    else:
+        print("note: training.json not found — run build_training_lapse.py to include it")
+
     (OUT / "index.json").write_text(json.dumps(manifest, indent=2))
     total_kb = sum((OUT / e["file"]).stat().st_size for e in manifest["examples"]) / 1024
     print(f"\nwrote {len(manifest['examples'])} examples -> {OUT}  ({total_kb:.0f} KB total)")
