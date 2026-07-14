@@ -14,6 +14,7 @@ import type {
   AnchorAnalyzeResponse,
   CompareResponse,
   ProbeResponse,
+  SteerResponse,
   CorpusCompareResponse,
 } from "./api";
 
@@ -23,6 +24,7 @@ export type GallerySubMode =
   | "anchor"
   | "compare"
   | "probe"
+  | "steer"
   | "corpus"
   | "song"
   | "training";
@@ -165,6 +167,25 @@ export async function applyExample(entry: GalleryEntry): Promise<void> {
         probeReconstructionErrors: d.reconstruction_errors,
         probeExplainedVariance: d.explained_variance,
         probeNLayers: d.n_layers,
+      });
+    } else if (entry.subMode === "steer") {
+      const d = await fetchEntryData<SteerResponse>(entry);
+      if (typeof entry.params.text === "string")
+        explorer.setInputText(entry.params.text);
+      if (typeof entry.params.positive === "string" &&
+          typeof entry.params.negative === "string")
+        explorer.setSteerInputs(entry.params.positive, entry.params.negative);
+      if (typeof entry.params.layer === "number")
+        explorer.setSteerLayer(entry.params.layer);
+      if (typeof entry.params.strength === "number")
+        explorer.setSteerStrength(entry.params.strength);
+      explorer.setSteerData({
+        steerOriginalTrajectories: d.original_trajectories,
+        steerSteeredTrajectories: d.steered_trajectories,
+        steerGenerationOriginal: d.generation_original,
+        steerGenerationSteered: d.generation_steered,
+        steerNLayers: d.n_layers,
+        steerExplainedVariance: d.explained_variance,
       });
     }
   } else if (entry.mode === "corpus") {

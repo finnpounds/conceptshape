@@ -1248,6 +1248,30 @@ body {
   transition: width 0.15s;
 }
 
+/* Steering — generations panel */
+.gen-block {
+  margin-bottom: 8px;
+}
+
+.gen-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}
+
+.gen-text {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Scrollbar */
 .sidebar::-webkit-scrollbar {
   width: 4px;

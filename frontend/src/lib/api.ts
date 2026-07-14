@@ -208,6 +208,43 @@ export async function compareShapes(
   return res.json();
 }
 
+export interface SteerResponse {
+  tokens: string[];
+  n_layers: number;
+  layer: number;
+  strength: number;
+  original_trajectories: { token: string; positions: number[][] }[];
+  steered_trajectories: { token: string; positions: number[][] }[];
+  generation_original: string;
+  generation_steered: string;
+  explained_variance: number[];
+  model_name: string;
+}
+
+export async function steerConcepts(
+  text: string,
+  positive: string,
+  negative: string,
+  layer: number,
+  strength: number,
+  nGenerate = 14,
+): Promise<SteerResponse> {
+  const res = await fetch(`${API_BASE}/steer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      positive,
+      negative,
+      layer,
+      strength,
+      n_generate: nGenerate,
+    }),
+  });
+  if (!res.ok) throw new Error(`Steering failed: ${await res.text()}`);
+  return res.json();
+}
+
 export async function getModelsInfo(): Promise<ModelsInfo> {
   const res = await fetch(`${API_BASE}/models`);
   if (!res.ok) throw new Error("Failed to get models info");

@@ -64,6 +64,11 @@ export default function AboutPanel() {
             self-organize by meaning.
           </li>
           <li>
+            <b>Steering</b> — inject a “toward − away” concept direction into the
+            residual stream (representation engineering) and watch both the
+            trajectory and the model’s own generated words bend.
+          </li>
+          <li>
             <b>Corpus topology</b> — persistent homology gives each text a
             “shape fingerprint”; compare philosophy vs poetry vs physics.
           </li>

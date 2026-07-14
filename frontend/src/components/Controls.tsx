@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useExplorerStore } from "@/store/explorer";
 import { useState } from "react";
-import { analyzeText, analyzeAnchors, runComparison, probeConceptsAPI } from "@/lib/api";
+import { analyzeText, analyzeAnchors, runComparison, probeConceptsAPI, steerConcepts } from "@/lib/api";
 import { exportTrajectoriesSTL } from "@/lib/stlExport";
 
 const TOKEN_COLORS = [
@@ -91,6 +91,12 @@ export default function Controls() {
     setProbeData,
     probeSelectedCategories, setProbeSelectedCategories,
     probeCustomConcepts, setProbeCustomConcepts,
+    // Steer
+    steerPositive, steerNegative, setSteerInputs,
+    steerLayer, setSteerLayer, steerStrength, setSteerStrength,
+    steerOriginalTrajectories, steerGenerationOriginal, steerGenerationSteered,
+    steerNLayers, isSteerLoading, setIsSteerLoading,
+    steerError, setSteerError, setSteerData,
   } = useExplorerStore();
 
   const [probeCustomInput, setProbeCustomInput] = useState("");
@@ -202,6 +208,30 @@ export default function Controls() {
     }
   }, [anchorInputs, probeSelectedCategories, probeCustomConcepts]);
 
+  // --- Steering ---
+  const handleSteer = useCallback(async () => {
+    if (!inputText.trim() || !steerPositive.trim() || !steerNegative.trim()) return;
+    setIsSteerLoading(true);
+    setSteerError(null);
+    try {
+      const data = await steerConcepts(
+        inputText, steerPositive, steerNegative, steerLayer, steerStrength,
+      );
+      setSteerData({
+        steerOriginalTrajectories: data.original_trajectories,
+        steerSteeredTrajectories: data.steered_trajectories,
+        steerGenerationOriginal: data.generation_original,
+        steerGenerationSteered: data.generation_steered,
+        steerNLayers: data.n_layers,
+        steerExplainedVariance: data.explained_variance,
+      });
+    } catch (err) {
+      setSteerError(err instanceof Error ? err.message : "Steering failed");
+    } finally {
+      setIsSteerLoading(false);
+    }
+  }, [inputText, steerPositive, steerNegative, steerLayer, steerStrength]);
+
   const toggleProbeCategory = (id: string) => {
     setProbeSelectedCategories(
       probeSelectedCategories.includes(id)
@@ -263,6 +293,8 @@ export default function Controls() {
   const hasAbsoluteData = nLayers > 0;
   const hasCompareData = compareData.length > 0;
   const hasProbeData = probeResults.length > 0;
+  const hasSteerData = steerOriginalTrajectories.length > 0;
+  const steerMaxLayer = (steerNLayers || 6) - 1;
   const activeNLayers = viewMode === "probe" ? probeNLayers : nLayers;
   const probeCount = probeSelectedCategories.reduce(
     (n, cat) => n + (CONCEPT_VOCABULARY[cat]?.length ?? 0), 0
@@ -291,7 +323,7 @@ export default function Controls() {
       </div>
 
       {/* View Mode */}
-      {(hasAbsoluteData || hasAnchorData || hasCompareData || hasProbeData) && (
+      {(hasAbsoluteData || hasAnchorData || hasCompareData || hasProbeData || hasSteerData) && (
         <div className="control-section">
           <label className="control-label">View Mode</label>
           <div className="method-toggle">
@@ -326,6 +358,14 @@ export default function Controls() {
               title="Concept vocabulary embedded in anchor-relative space"
             >
               Probe
+            </button>
+            <button
+              className={`method-btn ${viewMode === "steer" ? "active" : ""}`}
+              onClick={() => setViewMode("steer")}
+              disabled={!hasSteerData}
+              title="Original vs steered trajectories after injecting a concept direction"
+            >
+              Steer
             </button>
           </div>
         </div>
@@ -763,6 +803,59 @@ export default function Controls() {
           {isCompareLoading ? "Running (may take ~30s for new models)..." : "Run Comparison"}
         </button>
         {compareError && <p className="error-text">{compareError}</p>}
+      </div>
+
+      {/* Steering — representation engineering */}
+      <div className="control-section">
+        <label className="control-label">Steering · Rep. Engineering</label>
+        <p className="lens-hint">
+          inject a “toward − away” concept direction into the residual stream and
+          watch the path bend — and the model’s own words change
+        </p>
+        <div className="anchor-input-row" style={{ marginBottom: 4 }}>
+          <input type="text" className="anchor-input" value={steerPositive}
+            onChange={(e) => setSteerInputs(e.target.value, steerNegative)}
+            placeholder="toward… (e.g. love joy)" />
+        </div>
+        <div className="anchor-input-row" style={{ marginBottom: 4 }}>
+          <input type="text" className="anchor-input" value={steerNegative}
+            onChange={(e) => setSteerInputs(steerPositive, e.target.value)}
+            placeholder="away from… (e.g. hate fear)" />
+        </div>
+        <div className="speed-row">
+          <label className="info-label">Layer</label>
+          <input type="range" min={0} max={steerMaxLayer} step={1} value={steerLayer}
+            onChange={(e) => setSteerLayer(parseInt(e.target.value))} className="speed-slider" />
+          <span className="info-value">{steerLayer}</span>
+        </div>
+        <div className="speed-row">
+          <label className="info-label">Strength</label>
+          <input type="range" min={0} max={4} step={0.25} value={steerStrength}
+            onChange={(e) => setSteerStrength(parseFloat(e.target.value))} className="speed-slider" />
+          <span className="info-value">{steerStrength.toFixed(2)}</span>
+        </div>
+        <button className="anchor-compute-btn" onClick={handleSteer}
+          disabled={isSteerLoading || !inputText.trim() || !steerPositive.trim() || !steerNegative.trim()}>
+          {isSteerLoading ? "Steering…" : "Run Steering"}
+        </button>
+        {steerError && <p className="error-text">{steerError}</p>}
+        <p className="lens-hint" style={{ marginTop: 6 }}>
+          low strength (~1) shifts meaning coherently; high strength breaks
+          fluency — that trade-off is real at this model size.
+        </p>
+
+        {hasSteerData && (
+          <div style={{ marginTop: 10 }}>
+            <div className="gen-block">
+              <div className="gen-label" style={{ color: "#888899" }}>original</div>
+              <div className="gen-text">{steerGenerationOriginal.replace(/<\|endoftext\|>/g, "")}</div>
+            </div>
+            <div className="gen-block">
+              <div className="gen-label" style={{ color: "#6b8afd" }}>steered →</div>
+              <div className="gen-text">{steerGenerationSteered.replace(/<\|endoftext\|>/g, "")}</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Distance Table — anchor mode only */}

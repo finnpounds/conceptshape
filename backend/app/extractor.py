@@ -154,6 +154,72 @@ class ModelExtractor:
                 out.append(layer_preds)
         return out
 
+    def steer(
+        self,
+        text: str,
+        positive: str,
+        negative: str,
+        layer: int,
+        strength: float,
+        n_generate: int = 14,
+    ) -> dict:
+        """
+        Representation engineering (ActAdd, Turner et al. 2023): build a steering
+        direction from the difference of two concept activations, inject it into
+        the residual stream at `layer` with coefficient `strength`, and return
+        both the ORIGINAL and STEERED residual streams (for trajectory overlay)
+        plus greedy generations with and without the intervention.
+
+        direction = mean_act(positive) - mean_act(negative)   (at `layer`)
+        steered residual at `layer` += strength * direction    (all positions)
+
+        Returns dict with residual streams [n_layers+1, n_tokens, d_model] for
+        both conditions, the two generations, and the direction norm.
+        """
+        tokens = self.model.to_tokens(text)
+        pos = self.extract_concept_stream(positive)  # [n_layers+1, d_model]
+        neg = self.extract_concept_stream(negative)
+        direction = torch.tensor(
+            pos[layer] - neg[layer], dtype=torch.float32, device=self.device
+        )
+        steering = strength * direction
+        hook_name = f"blocks.{layer}.hook_resid_post"
+
+        def steer_hook(value, hook):  # noqa: ANN001
+            return value + steering
+
+        filt = lambda n: (  # noqa: E731
+            "hook_resid_post" in n or n == "hook_embed" or "hook_resid_pre" in n
+        )
+
+        with torch.no_grad():
+            _, cache_orig = self.model.run_with_cache(tokens, names_filter=filt)
+            gen_orig = self.model.generate(
+                tokens, max_new_tokens=n_generate, do_sample=False, verbose=False
+            )
+            with self.model.hooks(fwd_hooks=[(hook_name, steer_hook)]):
+                _, cache_steer = self.model.run_with_cache(tokens, names_filter=filt)
+                gen_steer = self.model.generate(
+                    tokens, max_new_tokens=n_generate, do_sample=False, verbose=False
+                )
+
+        def build_rs(cache) -> np.ndarray:  # noqa: ANN001
+            layers = []
+            first = "hook_embed" if "hook_embed" in cache else "blocks.0.hook_resid_pre"
+            layers.append(cache[first][0].detach().cpu().numpy())
+            for l in range(self.n_layers):
+                layers.append(cache[f"blocks.{l}.hook_resid_post"][0].detach().cpu().numpy())
+            return np.stack(layers, axis=0)
+
+        return {
+            "tokens": self.model.to_str_tokens(text),
+            "residual_original": build_rs(cache_orig),
+            "residual_steered": build_rs(cache_steer),
+            "generation_original": self.model.to_string(gen_orig[0]),
+            "generation_steered": self.model.to_string(gen_steer[0]),
+            "direction_norm": float(direction.norm()),
+        }
+
     def extract_concept_stream(self, text: str) -> np.ndarray:
         """
         Get mean-pooled embedding at every layer, excluding the BOS token.

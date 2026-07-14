@@ -52,7 +52,7 @@ interface ExplorerState {
   modelName: string;
 
   // Anchor-relative view data (M3)
-  viewMode: "absolute" | "anchor" | "compare" | "probe";
+  viewMode: "absolute" | "anchor" | "compare" | "probe" | "steer";
   anchorInputs: string[];
   anchorTrajectories: TokenTrajectory[];
   anchorMarkers: AnchorMarker[];
@@ -72,6 +72,20 @@ interface ExplorerState {
   probeError: string | null;
   probeSelectedCategories: string[];
   probeCustomConcepts: string[];
+
+  // Steering playground data (representation engineering)
+  steerPositive: string;
+  steerNegative: string;
+  steerLayer: number;
+  steerStrength: number;
+  steerOriginalTrajectories: TokenTrajectory[];
+  steerSteeredTrajectories: TokenTrajectory[];
+  steerGenerationOriginal: string;
+  steerGenerationSteered: string;
+  steerNLayers: number;
+  steerExplainedVariance: number[];
+  isSteerLoading: boolean;
+  steerError: string | null;
 
   // Compare view data (M4)
   selectedModels: string[];
@@ -133,7 +147,7 @@ interface ExplorerState {
   setProbeCustomConcepts: (concepts: string[]) => void;
 
   // Actions — anchor
-  setViewMode: (mode: "absolute" | "anchor" | "compare" | "probe") => void;
+  setViewMode: (mode: "absolute" | "anchor" | "compare" | "probe" | "steer") => void;
   setAnchorInputs: (inputs: string[]) => void;
   setAnchorData: (data: {
     anchorTrajectories: TokenTrajectory[];
@@ -144,6 +158,21 @@ interface ExplorerState {
   }) => void;
   setIsAnchorLoading: (loading: boolean) => void;
   setAnchorError: (error: string | null) => void;
+
+  // Actions — steer
+  setSteerInputs: (positive: string, negative: string) => void;
+  setSteerLayer: (layer: number) => void;
+  setSteerStrength: (strength: number) => void;
+  setSteerData: (data: {
+    steerOriginalTrajectories: TokenTrajectory[];
+    steerSteeredTrajectories: TokenTrajectory[];
+    steerGenerationOriginal: string;
+    steerGenerationSteered: string;
+    steerNLayers: number;
+    steerExplainedVariance: number[];
+  }) => void;
+  setIsSteerLoading: (loading: boolean) => void;
+  setSteerError: (error: string | null) => void;
 
   // Actions — compare
   setSelectedModels: (models: string[]) => void;
@@ -190,6 +219,20 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   probeError: null,
   probeSelectedCategories: ["emotions", "abstractions", "mind"],
   probeCustomConcepts: [],
+
+  // Steering defaults
+  steerPositive: "love joy happiness",
+  steerNegative: "hate fear anger",
+  steerLayer: 3,
+  steerStrength: 1.0,
+  steerOriginalTrajectories: [],
+  steerSteeredTrajectories: [],
+  steerGenerationOriginal: "",
+  steerGenerationSteered: "",
+  steerNLayers: 0,
+  steerExplainedVariance: [],
+  isSteerLoading: false,
+  steerError: null,
 
   // Compare data defaults
   selectedModels: ["pythia-70m", "gpt2"],
@@ -281,6 +324,26 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
     }),
   setIsAnchorLoading: (loading) => set({ isAnchorLoading: loading }),
   setAnchorError: (error) => set({ anchorError: error }),
+
+  // Steering actions
+  setSteerInputs: (positive, negative) =>
+    set({ steerPositive: positive, steerNegative: negative }),
+  setSteerLayer: (layer) => set({ steerLayer: layer }),
+  setSteerStrength: (strength) => set({ steerStrength: strength }),
+  setSteerData: (data) =>
+    set({
+      steerOriginalTrajectories: data.steerOriginalTrajectories,
+      steerSteeredTrajectories: data.steerSteeredTrajectories,
+      steerGenerationOriginal: data.steerGenerationOriginal,
+      steerGenerationSteered: data.steerGenerationSteered,
+      steerNLayers: data.steerNLayers,
+      steerExplainedVariance: data.steerExplainedVariance,
+      viewMode: "steer",
+      currentLayer: data.steerNLayers,
+      isPlaying: false,
+    }),
+  setIsSteerLoading: (loading) => set({ isSteerLoading: loading }),
+  setSteerError: (error) => set({ steerError: error }),
 
   // Compare actions
   setSelectedModels: (models) => set({ selectedModels: models }),

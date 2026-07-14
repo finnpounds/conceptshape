@@ -474,6 +474,82 @@ function ProbeScene() {
   );
 }
 
+// ─── Steering scene ──────────────────────────────────────────────────────────
+
+function SteerPolyline({
+  positions, currentLayer, scale, color, width, opacity,
+}: {
+  positions: number[][]; currentLayer: number; scale: number;
+  color: string; width: number; opacity: number;
+}) {
+  const pts = useMemo(() => {
+    const maxIdx = Math.ceil(currentLayer) + 1;
+    return positions
+      .slice(0, Math.max(2, maxIdx))
+      .map((p) => [p[0] * scale, p[1] * scale, p[2] * scale] as [number, number, number]);
+  }, [positions, currentLayer, scale]);
+  if (pts.length < 2) return null;
+  return <Line points={pts} color={color} lineWidth={width} opacity={opacity} transparent />;
+}
+
+/** Original (dim) vs steered (bright) trajectories, with a displacement link. */
+function SteerScene() {
+  const orig = useExplorerStore((s) => s.steerOriginalTrajectories);
+  const steered = useExplorerStore((s) => s.steerSteeredTrajectories);
+  const currentLayer = useExplorerStore((s) => s.currentLayer);
+  const spread = useExplorerStore((s) => s.spread);
+  const hideBOS = useExplorerStore((s) => s.hideBOS);
+  const SCALE = 4 * spread;
+
+  const indices = orig
+    .map((_, i) => i)
+    .filter((i) => !(hideBOS && i === 0));
+
+  return (
+    <>
+      {indices.map((i) => {
+        const oTraj = orig[i];
+        const sTraj = steered[i];
+        if (!oTraj || !sTraj) return null;
+        const color = getTokenColor(i);
+        const o = lerpPosition(oTraj.positions, currentLayer);
+        const s = lerpPosition(sTraj.positions, currentLayer);
+        const oS: [number, number, number] = [o[0] * SCALE, o[1] * SCALE, o[2] * SCALE];
+        const sS: [number, number, number] = [s[0] * SCALE, s[1] * SCALE, s[2] * SCALE];
+        return (
+          <group key={i}>
+            {/* original — dim gray */}
+            <SteerPolyline positions={oTraj.positions} currentLayer={currentLayer}
+              scale={SCALE} color="#666677" width={1} opacity={0.35} />
+            <mesh position={oS}>
+              <sphereGeometry args={[0.045, 10, 10]} />
+              <meshStandardMaterial color="#666677" />
+            </mesh>
+            {/* steered — colored */}
+            <SteerPolyline positions={sTraj.positions} currentLayer={currentLayer}
+              scale={SCALE} color={color} width={2} opacity={0.75} />
+            <group position={sS}>
+              <mesh>
+                <sphereGeometry args={[0.07, 14, 14]} />
+                <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
+              </mesh>
+              <Billboard>
+                <Text fontSize={0.13} color={color} anchorX="center" anchorY="bottom"
+                  position={[0, 0.13, 0]} outlineWidth={0.02} outlineColor="#000000">
+                  {sTraj.token}
+                </Text>
+              </Billboard>
+            </group>
+            {/* displacement connector at the current layer */}
+            <Line points={[oS, sS]} color={color} lineWidth={1} opacity={0.4}
+              transparent dashed dashSize={0.08} gapSize={0.06} />
+          </group>
+        );
+      })}
+    </>
+  );
+}
+
 // ─── Playback controllers ────────────────────────────────────────────────────
 
 function AbsolutePlaybackController() {
@@ -481,13 +557,16 @@ function AbsolutePlaybackController() {
   const playSpeed = useExplorerStore((s) => s.playSpeed);
   const nLayers = useExplorerStore((s) => s.nLayers);
   const probeNLayers = useExplorerStore((s) => s.probeNLayers);
+  const steerNLayers = useExplorerStore((s) => s.steerNLayers);
   const viewMode = useExplorerStore((s) => s.viewMode);
   const currentLayer = useExplorerStore((s) => s.currentLayer);
   const setCurrentLayer = useExplorerStore((s) => s.setCurrentLayer);
   const layerRef = useRef(0);
 
   useFrame((_, delta) => {
-    const maxLayer = viewMode === "probe" ? probeNLayers : nLayers;
+    const maxLayer =
+      viewMode === "probe" ? probeNLayers :
+      viewMode === "steer" ? steerNLayers : nLayers;
     if (!isPlaying || maxLayer === 0) {
       layerRef.current = currentLayer;
       return;
@@ -534,11 +613,13 @@ function AxisLabels() {
   const compareEV = useExplorerStore((s) => s.compareExplainedVariance);
 
   const probeEV = useExplorerStore((s) => s.probeExplainedVariance);
+  const steerEV = useExplorerStore((s) => s.steerExplainedVariance);
 
   const ev =
     viewMode === "anchor"  ? anchorEV :
     viewMode === "compare" ? compareEV :
     viewMode === "probe"   ? probeEV :
+    viewMode === "steer"   ? steerEV :
     explainedVariance;
 
   if (ev.length < 3) return null;
@@ -548,6 +629,7 @@ function AxisLabels() {
     viewMode === "anchor"  ? "Anc-PC" :
     viewMode === "compare" ? "Cmp-PC" :
     viewMode === "probe"   ? "Prb-PC" :
+    viewMode === "steer"   ? "Steer-PC" :
     "PC";
 
   return (
@@ -604,6 +686,11 @@ export default function Viewport() {
         <>
           <AbsolutePlaybackController />
           <ProbeScene />
+        </>
+      ) : viewMode === "steer" ? (
+        <>
+          <AbsolutePlaybackController />
+          <SteerScene />
         </>
       ) : (
         <>

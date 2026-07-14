@@ -494,6 +494,109 @@ async def probe(req: ProbeRequest):
     )
 
 
+# --- Steering vector playground (representation engineering) ---
+
+class SteerRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=200)
+    positive: str = Field(..., min_length=1, max_length=100)
+    negative: str = Field(..., min_length=1, max_length=100)
+    layer: int = Field(..., ge=0)
+    strength: float = Field(..., ge=0.0, le=8.0)
+    n_generate: int = Field(default=14, ge=1, le=30)
+
+
+class SteerResponse(BaseModel):
+    tokens: list[str]
+    n_layers: int
+    layer: int
+    strength: float
+    original_trajectories: list[TokenTrajectory]
+    steered_trajectories: list[TokenTrajectory]
+    generation_original: str
+    generation_steered: str
+    explained_variance: list[float]
+    model_name: str
+
+
+@app.post("/steer", response_model=SteerResponse)
+async def steer(req: SteerRequest):
+    """
+    Inject a (positive − negative) concept direction into the residual stream at
+    a chosen layer/strength, and return the original + steered trajectories in a
+    shared 3D space plus greedy generations for both. Steering is subtle-to-rough
+    on a 70M model — low strengths (~1) shift meaning coherently; high strengths
+    break fluency (which is itself worth seeing).
+    """
+    if _extractor is None:
+        raise HTTPException(503, "Model not loaded")
+    if req.layer >= _extractor.n_layers:
+        raise HTTPException(400, f"layer must be < {_extractor.n_layers}")
+
+    try:
+        result = _extractor.steer(
+            req.text, req.positive, req.negative, req.layer, req.strength, req.n_generate
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(500, f"Steering failed: {e}")
+
+    rs_o = result["residual_original"]  # [L+1, T, d]
+    rs_s = result["residual_steered"]
+    d_model = rs_o.shape[-1]
+
+    # Center BOTH by the ORIGINAL per-layer mean: removes inter-layer norm growth
+    # (like the absolute view) while PRESERVING the injected displacement — a
+    # per-condition centering would cancel the constant steering vector.
+    layer_means = rs_o.mean(axis=1, keepdims=True)
+    o_c = rs_o - layer_means
+    s_c = rs_s - layer_means
+
+    from sklearn.decomposition import PCA as _PCA
+    union = np.concatenate([o_c.reshape(-1, d_model), s_c.reshape(-1, d_model)], axis=0)
+    pca = _PCA(n_components=3)
+    pca.fit(union)
+
+    def project(x_c: np.ndarray) -> np.ndarray:
+        p = pca.transform(x_c.reshape(-1, d_model))
+        return p.reshape(x_c.shape[0], x_c.shape[1], 3)
+
+    pos_o = project(o_c)
+    pos_s = project(s_c)
+
+    allp = np.concatenate([pos_o.reshape(-1, 3), pos_s.reshape(-1, 3)], axis=0)
+    max_abs = np.abs(allp).max(axis=0)
+    max_abs = np.where(max_abs < 1e-8, 1.0, max_abs)
+    pos_o = pos_o / max_abs
+    pos_s = pos_s / max_abs
+
+    toks = result["tokens"]
+    n_tok = len(toks)
+    orig_traj = [
+        TokenTrajectory(token=toks[t], positions=pos_o[:, t, :].tolist())
+        for t in range(n_tok)
+    ]
+    steer_traj = [
+        TokenTrajectory(token=toks[t], positions=pos_s[:, t, :].tolist())
+        for t in range(n_tok)
+    ]
+
+    ev = pca.explained_variance_ratio_.tolist()
+    while len(ev) < 3:
+        ev.append(0.0)
+
+    return SteerResponse(
+        tokens=toks,
+        n_layers=_extractor.n_layers,
+        layer=req.layer,
+        strength=req.strength,
+        original_trajectories=orig_traj,
+        steered_trajectories=steer_traj,
+        generation_original=result["generation_original"],
+        generation_steered=result["generation_steered"],
+        explained_variance=ev,
+        model_name=_extractor.model_name,
+    )
+
+
 # --- Batch analysis for song mode (Milestone 7) ---
 
 class AnalyzeBatchRequest(BaseModel):

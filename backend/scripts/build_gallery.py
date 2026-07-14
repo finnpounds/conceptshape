@@ -117,6 +117,29 @@ EXAMPLES = [
         }),
     },
     {
+        "id": "steering",
+        "mode": "explore",
+        "subMode": "steer",
+        "title": "Steering the model",
+        "hook": "Push a concept into the model's mind and watch its words change.",
+        "detail": (
+            "Representation engineering: we build a direction from love/joy minus "
+            "hate/fear and inject it into the residual stream at layer 3. The dim "
+            "path is the model untouched; the bright path is the model steered. Below, "
+            "the model's own greedy continuation shifts — 'a jerk' becomes something "
+            "kinder. Low strength nudges meaning; high strength breaks fluency. This "
+            "is the same mechanism behind real AI-safety steering work, in miniature."
+        ),
+        "call": ("/steer", {
+            "text": "I feel",
+            "positive": "love joy happiness delight",
+            "negative": "hate fear anger misery",
+            "layer": 3,
+            "strength": 1.0,
+            "n_generate": 14,
+        }),
+    },
+    {
         "id": "text-shapes",
         "mode": "corpus",
         "subMode": "corpus",
