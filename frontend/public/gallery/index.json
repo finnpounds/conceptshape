@@ -6,7 +6,8 @@
       "pythia-160m"
     ],
     "loaded": [
-      "pythia-70m"
+      "pythia-70m",
+      "gpt2"
     ]
   },
   "examples": [
@@ -35,6 +36,24 @@
         "method": "pca"
       },
       "file": "river.json"
+    },
+    {
+      "id": "attention-sink",
+      "mode": "explore",
+      "subMode": "absolute",
+      "title": "The attention sink",
+      "hook": "Almost every token secretly stares at the very first one.",
+      "detail": "With attention edges on and the start token shown, a pattern jumps out: most tokens pour a chunk of their attention into position 0 \u2014 the invisible begin-of-sequence marker. Models use it as a no-op 'sink,' a place to dump attention when a head has nothing useful to point at. It's why the other views hide that token by default.",
+      "params": {
+        "text": "The river bank was steep but the money bank was closed",
+        "method": "pca"
+      },
+      "file": "river.json",
+      "viewState": {
+        "showAttention": true,
+        "hideBOS": false,
+        "currentLayer": 3
+      }
     },
     {
       "id": "anchors",

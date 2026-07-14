@@ -181,6 +181,28 @@ def main() -> None:
             "file": fname,
         })
 
+    # Attention-sink tour step — reuses river.json but with attention edges on
+    # and the BOS token shown, so the "everything attends to token 0" sink is visible.
+    if any(e["id"] == "river" for e in manifest["examples"]):
+        river_idx = next(i for i, e in enumerate(manifest["examples"]) if e["id"] == "river")
+        manifest["examples"].insert(river_idx + 1, {
+            "id": "attention-sink",
+            "mode": "explore",
+            "subMode": "absolute",
+            "title": "The attention sink",
+            "hook": "Almost every token secretly stares at the very first one.",
+            "detail": (
+                "With attention edges on and the start token shown, a pattern jumps out: "
+                "most tokens pour a chunk of their attention into position 0 — the invisible "
+                "begin-of-sequence marker. Models use it as a no-op 'sink,' a place to dump "
+                "attention when a head has nothing useful to point at. It's why the other "
+                "views hide that token by default."
+            ),
+            "params": {"text": "The river bank was steep but the money bank was closed", "method": "pca"},
+            "file": "river.json",
+            "viewState": {"showAttention": True, "hideBOS": False, "currentLayer": 3},
+        })
+
     # Static tour entries whose data files are produced by other scripts
     # (no API call needed here — just referenced in the manifest).
     if (OUT / "training.json").exists():

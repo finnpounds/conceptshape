@@ -36,6 +36,13 @@ export interface GalleryEntry {
   detail: string;
   params: Record<string, unknown>;
   file: string;
+  // Optional UI state to apply after loading (absolute mode) — lets a tour step
+  // turn on attention edges, show the BOS token, or jump to a layer.
+  viewState?: {
+    showAttention?: boolean;
+    hideBOS?: boolean;
+    currentLayer?: number;
+  };
 }
 
 export interface GalleryIndex {
@@ -108,6 +115,13 @@ export async function applyExample(entry: GalleryEntry): Promise<void> {
         explainedVariance: d.explained_variance,
         modelName: d.model_name,
       });
+      // Apply per-step view state (reset to defaults when unspecified so a
+      // previous attention-sink step doesn't leak into the next example).
+      const vs = entry.viewState ?? {};
+      explorer.setShowAttention(vs.showAttention ?? false);
+      explorer.setHideBOS(vs.hideBOS ?? true);
+      if (typeof vs.currentLayer === "number")
+        explorer.setCurrentLayer(vs.currentLayer);
     } else if (entry.subMode === "anchor") {
       const d = await fetchEntryData<AnchorAnalyzeResponse>(entry);
       if (typeof entry.params.text === "string")

@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useExplorerStore } from "@/store/explorer";
 import { useState } from "react";
 import { analyzeText, analyzeAnchors, runComparison, probeConceptsAPI } from "@/lib/api";
+import { exportTrajectoriesSTL } from "@/lib/stlExport";
 
 const TOKEN_COLORS = [
   "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
@@ -42,9 +43,10 @@ const CONCEPT_VOCABULARY: Record<string, string[]> = {
 };
 
 const AVAILABLE_MODELS = [
-  { id: "pythia-70m",  label: "Pythia-70M",  note: "6L · 512d · fast" },
-  { id: "gpt2",        label: "GPT-2 Small",  note: "12L · 768d" },
-  { id: "pythia-160m", label: "Pythia-160M",  note: "12L · 768d" },
+  { id: "pythia-70m",          label: "Pythia-70M",       note: "6L · 512d · fast" },
+  { id: "gpt2",                label: "GPT-2 Small",      note: "12L · 768d" },
+  { id: "pythia-160m",         label: "Pythia-160M",      note: "12L · 768d" },
+  { id: "pythia-160m-deduped", label: "Pythia-160M dedup", note: "12L · 768d · deduped data" },
 ];
 
 // Per-model color palette for the compare legend
@@ -63,7 +65,7 @@ export default function Controls() {
     showAttention, setShowAttention,
     attentionThreshold, setAttentionThreshold,
     projectionMethod, setProjectionMethod,
-    tokens, explainedVariance, modelName,
+    tokens, trajectories, explainedVariance, modelName,
     logitLens,
     hideBOS, setHideBOS,
     spread, setSpread,
@@ -240,6 +242,16 @@ export default function Controls() {
   const removeAnchorInput = (i: number) => {
     if (anchorInputs.length <= 2) return;
     setAnchorInputs(anchorInputs.filter((_, idx) => idx !== i));
+  };
+
+  const handleExportSTL = () => {
+    const src = viewMode === "anchor" ? anchorTrajectories : trajectories;
+    const trajs = src.filter((_, i) => !(hideBOS && i === 0));
+    if (trajs.length === 0) return;
+    const name =
+      inputText.trim().slice(0, 30).replace(/[^a-z0-9]+/gi, "-").toLowerCase() ||
+      "trajectory";
+    exportTrajectoriesSTL(trajs, 4 * spread, `${name}.stl`);
   };
 
   const visibleTokens = tokens
@@ -571,6 +583,17 @@ export default function Controls() {
               onChange={(e) => setHideBOS(e.target.checked)} />{" "}
             Hide BOS Token
           </label>
+        </div>
+      )}
+
+      {/* Export — 3D-print the trajectories */}
+      {(hasAbsoluteData || hasAnchorData) && viewMode !== "compare" && viewMode !== "probe" && (
+        <div className="control-section">
+          <button className="preset-btn" style={{ width: "100%", padding: 7 }}
+            onClick={handleExportSTL}
+            title="Download the current trajectories as a printable 3D model">
+            ↓ Export .STL (3D print)
+          </button>
         </div>
       )}
 

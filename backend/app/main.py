@@ -33,7 +33,7 @@ _projector: Projector | None = None
 # The default model is added on startup; additional models load on demand.
 _model_registry: dict[str, ModelExtractor] = {}
 
-SUPPORTED_MODELS = ["pythia-70m", "gpt2", "pythia-160m"]
+SUPPORTED_MODELS = ["pythia-70m", "gpt2", "pythia-160m", "pythia-160m-deduped"]
 
 
 def _get_or_load_model(name: str) -> ModelExtractor:
