@@ -64,6 +64,7 @@ export default function Controls() {
     attentionThreshold, setAttentionThreshold,
     projectionMethod, setProjectionMethod,
     tokens, explainedVariance, modelName,
+    logitLens,
     hideBOS, setHideBOS,
     spread, setSpread,
     // Anchor
@@ -103,6 +104,7 @@ export default function Controls() {
         tokens: data.tokens,
         trajectories: data.trajectories,
         attention: data.attention,
+        logitLens: data.logit_lens,
         nLayers: data.n_layers,
         explainedVariance: data.explained_variance,
         modelName: data.model_name,
@@ -411,6 +413,52 @@ export default function Controls() {
             <input type="range" min={0.2} max={3} step={0.1} value={playSpeed}
               onChange={(e) => setPlaySpeed(parseFloat(e.target.value))} className="speed-slider" />
             <span className="info-value">{playSpeed.toFixed(1)}x</span>
+          </div>
+        </div>
+      )}
+
+      {/* Logit Lens — what each token predicts next, decoded from the current layer */}
+      {viewMode === "absolute" && logitLens.length > 0 && (
+        <div className="control-section">
+          <label className="control-label">
+            Logit Lens · layer {Math.min(Math.round(currentLayer), nLayers)}
+          </label>
+          <p className="lens-hint">
+            what each token “expects” next, decoded from this layer — scrub the
+            slider to watch guesses resolve
+          </p>
+          <div className="lens-table">
+            {visibleTokens.map(({ tok, i }) => {
+              const li = Math.min(Math.round(currentLayer), nLayers);
+              const preds = logitLens[li]?.[i] ?? [];
+              const top = preds[0];
+              if (!top) return null;
+              const show = (s: string) => (s.trim() === "" ? "␣" : s.trim());
+              return (
+                <div
+                  key={i}
+                  className="lens-row"
+                  title={preds
+                    .map((p) => `${show(p.token)}  ${(p.prob * 100).toFixed(0)}%`)
+                    .join("   ·   ")}
+                >
+                  <span
+                    className="lens-src"
+                    style={{ color: TOKEN_COLORS[i % TOKEN_COLORS.length] }}
+                  >
+                    {show(tok)}
+                  </span>
+                  <span className="lens-arrow">→</span>
+                  <span className="lens-pred">{show(top.token)}</span>
+                  <span className="lens-prob">
+                    <span
+                      className="lens-prob-fill"
+                      style={{ width: `${Math.max(3, top.prob * 100)}%` }}
+                    />
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

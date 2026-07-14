@@ -103,6 +103,7 @@ export async function applyExample(entry: GalleryEntry): Promise<void> {
         tokens: d.tokens,
         trajectories: d.trajectories,
         attention: d.attention,
+        logitLens: d.logit_lens ?? [],
         nLayers: d.n_layers,
         explainedVariance: d.explained_variance,
         modelName: d.model_name,

@@ -2,6 +2,11 @@ import { API_BASE } from "./config";
 
 export { API_BASE };
 
+export interface LensPrediction {
+  token: string;
+  prob: number;
+}
+
 export interface AnalyzeResponse {
   tokens: string[];
   n_layers: number;
@@ -10,6 +15,8 @@ export interface AnalyzeResponse {
   explained_variance: number[];
   projection_method: string;
   model_name: string;
+  // [n_layers+1][n_tokens][k] top-k next-token guesses per layer/position.
+  logit_lens: LensPrediction[][][];
 }
 
 export interface AnchorAnalyzeResponse {

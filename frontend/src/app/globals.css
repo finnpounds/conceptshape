@@ -1188,6 +1188,66 @@ body {
   to { opacity: 1; }
 }
 
+/* Logit lens panel */
+.lens-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.lens-table {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lens-row {
+  display: grid;
+  grid-template-columns: minmax(28px, auto) 10px minmax(28px, auto) 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  cursor: default;
+}
+
+.lens-src {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.lens-arrow {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.lens-pred {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.lens-prob {
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.lens-prob-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.15s;
+}
+
 /* Scrollbar */
 .sidebar::-webkit-scrollbar {
   width: 4px;

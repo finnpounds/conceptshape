@@ -102,6 +102,11 @@ class AttentionEdge(BaseModel):
     weights: list[list[float]]  # [n_tokens][n_tokens]
 
 
+class LensPrediction(BaseModel):
+    token: str
+    prob: float
+
+
 class AnalyzeResponse(BaseModel):
     tokens: list[str]
     n_layers: int
@@ -110,6 +115,8 @@ class AnalyzeResponse(BaseModel):
     explained_variance: list[float]
     projection_method: str
     model_name: str
+    # Logit lens: [n_layers+1][n_tokens][k] top-k next-token guesses per layer.
+    logit_lens: list[list[list[LensPrediction]]]
 
 
 class ModelInfo(BaseModel):
@@ -191,6 +198,9 @@ async def analyze(req: AnalyzeRequest):
                 weights=attention_data[layer, head].tolist(),
             ))
 
+    # Logit lens — what the model would predict at each layer/position.
+    logit_lens = _extractor.logit_lens(raw["residual_stream"], k=3)
+
     return AnalyzeResponse(
         tokens=raw["tokens"],
         n_layers=n_layers,
@@ -199,6 +209,7 @@ async def analyze(req: AnalyzeRequest):
         explained_variance=projection["explained_variance"],
         projection_method=projection["method"],
         model_name=_extractor.model_name,
+        logit_lens=logit_lens,
     )
 
 

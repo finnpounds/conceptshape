@@ -117,6 +117,43 @@ class ModelExtractor:
             "attention": attention,
         }
 
+    def logit_lens(self, residual_stream: np.ndarray, k: int = 3) -> list:
+        """
+        Logit lens (nostalgebraist, 2020): decode the residual stream at EVERY
+        layer through the model's final layernorm + unembedding, revealing what
+        the model would predict as the next token "as if" it stopped reading at
+        that layer. At the final layer this reproduces the model's real
+        next-token distribution; at earlier layers you watch the guess resolve.
+
+        Args:
+            residual_stream: [n_layers+1, n_tokens, d_model] (from extract()).
+            k: top-k predictions per (layer, position).
+
+        Returns:
+            nested list [n_layers+1][n_tokens][k] of {"token": str, "prob": float}.
+            Entry [L][i] is the model's top-k next-token guesses decoded from
+            layer L at position i.
+        """
+        rs = torch.tensor(residual_stream, dtype=torch.float32, device=self.device)
+        out: list = []
+        with torch.no_grad():
+            for layer in range(rs.shape[0]):
+                normed = self.model.ln_final(rs[layer])   # [T, d_model]
+                logits = self.model.unembed(normed)       # [T, d_vocab]
+                probs = torch.softmax(logits, dim=-1)
+                topv, topi = probs.topk(k, dim=-1)        # [T, k]
+                layer_preds = []
+                for t in range(rs.shape[1]):
+                    layer_preds.append([
+                        {
+                            "token": self.model.tokenizer.decode([int(topi[t, j])]),
+                            "prob": float(topv[t, j]),
+                        }
+                        for j in range(k)
+                    ])
+                out.append(layer_preds)
+        return out
+
     def extract_concept_stream(self, text: str) -> np.ndarray:
         """
         Get mean-pooled embedding at every layer, excluding the BOS token.

@@ -51,6 +51,11 @@ export default function AboutPanel() {
             reference concepts, turning an opaque space into a readable map.
           </li>
           <li>
+            <b>Logit lens</b> — decode every layer through the model’s
+            unembedding to see what it would predict next; scrub the slider and
+            watch the guess resolve from noise into grammar.
+          </li>
+          <li>
             <b>Cross-model compare</b> — do different models build the same
             geometry? CKA &amp; Procrustes metrics put a number on it.
           </li>

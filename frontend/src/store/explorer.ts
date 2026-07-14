@@ -11,6 +11,11 @@ export interface AttentionEdge {
   weights: number[][]; // [n_tokens][n_tokens]
 }
 
+export interface LensPrediction {
+  token: string;
+  prob: number;
+}
+
 export interface AnchorMarker {
   label: string;
   positions: number[][]; // [n_layers+1][3]
@@ -41,6 +46,7 @@ interface ExplorerState {
   tokens: string[];
   trajectories: TokenTrajectory[];
   attention: AttentionEdge[];
+  logitLens: LensPrediction[][][]; // [n_layers+1][n_tokens][k]
   nLayers: number;
   explainedVariance: number[];
   modelName: string;
@@ -95,6 +101,7 @@ interface ExplorerState {
     tokens: string[];
     trajectories: TokenTrajectory[];
     attention: AttentionEdge[];
+    logitLens: LensPrediction[][][];
     nLayers: number;
     explainedVariance: number[];
     modelName: string;
@@ -157,6 +164,7 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   tokens: [],
   trajectories: [],
   attention: [],
+  logitLens: [],
   nLayers: 0,
   explainedVariance: [],
   modelName: "",
@@ -212,6 +220,7 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
       tokens: data.tokens,
       trajectories: data.trajectories,
       attention: data.attention,
+      logitLens: data.logitLens,
       nLayers: data.nLayers,
       explainedVariance: data.explainedVariance,
       modelName: data.modelName,
