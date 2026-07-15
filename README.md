@@ -4,9 +4,9 @@
 > take physical shape as a sentence flows through a transformer — token by
 > token, layer by layer.
 
-**▶ Live demo:** _add your Vercel URL here_ &nbsp;·&nbsp; **Guided tour** built in — no setup required.
+**▶ Live demo: [conceptshape.vercel.app](https://conceptshape.vercel.app)** &nbsp;·&nbsp; **Guided tour** built in — no setup required.
 
-![Open Graph preview](frontend/src/app/opengraph-image.tsx)
+[![Semantic Geometry Explorer](https://conceptshape.vercel.app/opengraph-image)](https://conceptshape.vercel.app)
 
 ---
 
@@ -129,3 +129,7 @@ frontend/
   src/store/      # zustand stores (explorer, corpus, song, ui)
   public/gallery/ # precomputed showcase JSON
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).

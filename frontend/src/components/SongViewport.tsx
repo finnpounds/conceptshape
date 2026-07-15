@@ -328,6 +328,7 @@ export default function SongViewport() {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <Canvas
+        dpr={[1, 2]}
         camera={{ position: [4, 3, 4], fov: 50 }}
         style={{ background: "#050508" }}
         onMouseDown={handleUserInteraction}

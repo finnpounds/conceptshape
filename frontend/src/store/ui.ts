@@ -27,6 +27,10 @@ interface UIState {
   showAbout: boolean;
   setShowAbout: (b: boolean) => void;
 
+  // Mobile sidebar drawer (ignored on desktop — CSS keeps the sidebar visible)
+  sidebarOpen: boolean;
+  setSidebarOpen: (b: boolean) => void;
+
   // Live-backend status
   backendStatus: BackendStatus;
   setBackendStatus: (s: BackendStatus) => void;
@@ -40,12 +44,16 @@ export const useUIStore = create<UIState>((set) => ({
   setShowHero: (b) => set({ showHero: b }),
 
   tourIndex: null,
-  startTour: () => set({ tourIndex: 0, showHero: false, showAbout: false }),
+  // Starting the tour also closes the mobile drawer so the 3D scene is visible.
+  startTour: () => set({ tourIndex: 0, showHero: false, showAbout: false, sidebarOpen: false }),
   endTour: () => set({ tourIndex: null }),
   setTourIndex: (i) => set({ tourIndex: i }),
 
   showAbout: false,
   setShowAbout: (b) => set({ showAbout: b }),
+
+  sidebarOpen: false,
+  setSidebarOpen: (b) => set({ sidebarOpen: b }),
 
   backendStatus: "unknown",
   setBackendStatus: (s) => set({ backendStatus: s }),

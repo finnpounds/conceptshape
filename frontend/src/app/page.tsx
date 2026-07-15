@@ -19,12 +19,20 @@ const SongViewport = dynamic(() => import("@/components/SongViewport"), { ssr: f
 const TrainingViewport = dynamic(() => import("@/components/TrainingViewport"), { ssr: false });
 
 export default function Home() {
-  const { appMode, setAppMode, startTour, setShowAbout } = useUIStore();
+  const { appMode, setAppMode, startTour, setShowAbout, sidebarOpen, setSidebarOpen } =
+    useUIStore();
 
   return (
     <main className="app-layout">
-      <div className="sidebar">
+      <div className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="logo-area">
+          <button
+            className="sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close controls"
+          >
+            ✕
+          </button>
           <h1 className="app-title">Semantic Geometry</h1>
           <p className="app-subtitle">
             Watch meaning take shape through transformer layers
@@ -93,6 +101,20 @@ export default function Home() {
         {/* Showcase overlays live above the active viewport */}
         <Tour />
       </div>
+
+      {/* Mobile: floating button to open the controls drawer + backdrop */}
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setSidebarOpen(true)}
+        aria-label="Open controls"
+      >
+        ☰ Controls
+      </button>
+      <div
+        className={`mobile-backdrop ${sidebarOpen ? "show" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden
+      />
 
       {/* Full-screen overlays */}
       <Hero />

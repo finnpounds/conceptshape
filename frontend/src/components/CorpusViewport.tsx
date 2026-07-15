@@ -114,7 +114,7 @@ function CorpusScene() {
 
 export default function CorpusViewport() {
   return (
-    <Canvas camera={{ position: [4, 3, 4], fov: 50 }} style={{ background: "#050508" }}>
+    <Canvas dpr={[1, 2]} camera={{ position: [4, 3, 4], fov: 50 }} style={{ background: "#050508" }}>
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
       <OrbitControls enableDamping dampingFactor={0.05} minDistance={2} maxDistance={20} />

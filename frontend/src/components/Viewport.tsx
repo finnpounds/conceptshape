@@ -667,7 +667,7 @@ export default function Viewport() {
     .filter((i) => !(hideBOS && i === 0));
 
   return (
-    <Canvas camera={{ position: [4, 3, 4], fov: 50 }} style={{ background: "#0a0a0f" }}>
+    <Canvas dpr={[1, 2]} camera={{ position: [4, 3, 4], fov: 50 }} style={{ background: "#0a0a0f" }}>
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
 
