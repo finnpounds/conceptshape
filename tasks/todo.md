@@ -126,7 +126,7 @@
 
 ### Validation
 - [ ] Preset "Philosophy vs Recipe" — verify H1 loop count differs between texts
-- [ ] Same text twice → distance ≈ 0
+- [x] Same text twice → distance ≈ 0 (deterministic subsampling; verified 2026-11-04)
 - [ ] Distinct texts → distance clearly > 0
 - [ ] Persistence diagram scatter: all points above diagonal (death > birth)
 - [ ] File upload: drop a .txt file, verify it appears in the list

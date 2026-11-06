@@ -27,14 +27,15 @@ export interface ParsedLrc {
   lines: LrcLine[];
 }
 
-const TIME_TAG = /\[(\d{1,2}):(\d{2})\.(\d{2,3})\]/g;
+// [mm:ss.xx], [mm:ss.xxx], [mm:ss:xx] and plain [mm:ss] are all in the wild.
+const TIME_TAG = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g;
 const META_TAG = /^\[(ti|ar|al|length|by):(.+)\]$/i;
 
-function parseSeconds(mm: string, ss: string, xx: string): number {
+function parseSeconds(mm: string, ss: string, xx?: string): number {
   return (
     parseInt(mm, 10) * 60 +
     parseInt(ss, 10) +
-    parseInt(xx.padEnd(3, "0"), 10) / 1000
+    parseInt((xx ?? "0").padEnd(3, "0"), 10) / 1000
   );
 }
 

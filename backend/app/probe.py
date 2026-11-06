@@ -16,7 +16,7 @@ the first embedding run.
 
 import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_distances
+from sklearn.metrics.pairwise import cosine_distances, cosine_similarity
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -99,6 +99,51 @@ def get_concept_stream(
 # Core probe computation
 # ---------------------------------------------------------------------------
 
+def _regularized_pinv(S: np.ndarray) -> np.ndarray:
+    """Pseudo-inverse of a symmetric PSD kernel block, dropping near-zero eigenmodes."""
+    eigvals, eigvecs = np.linalg.eigh(S)
+    thresh = max(1e-10, float(eigvals.max()) * 1e-8)
+    valid = eigvals > thresh
+    return (eigvecs[:, valid] / eigvals[valid]) @ eigvecs[:, valid].T
+
+
+def nystrom_reconstruction_errors(
+    probe_vecs: np.ndarray,   # [N, d] centred probe vectors (one layer)
+    anchor_vecs: np.ndarray,  # [K, d] centred anchor vectors (same layer, same centre)
+) -> list[dict]:
+    """
+    How well do the probes' distances to the first k anchors reconstruct the
+    probes' distances to EACH OTHER?  Nyström kernel approximation (the method
+    in notebooks/anchor_reconstruction_v2.ipynb):
+
+        S_nn ≈ S_nk · pinv(S_kk) · S_kn       (exact when rank(S) ≤ k)
+
+    on the cosine-similarity kernel. Reported as relative Frobenius error on the
+    upper triangle of the N×N cosine-distance matrix, for k = 2..K in the order
+    the anchors were given.
+
+    This replaces an earlier curve that zero-padded the missing anchor columns
+    and re-projected through the full PCA; that measured the PCA loadings of the
+    padded columns rather than recoverable geometry and was 0 at k = K by
+    construction.
+    """
+    K = anchor_vecs.shape[0]
+    S_nn = cosine_similarity(probe_vecs)
+    S_nk = cosine_similarity(probe_vecs, anchor_vecs)
+    S_kk = cosine_similarity(anchor_vecs)
+    D_true = 1.0 - S_nn
+    mask = np.triu(np.ones_like(D_true, dtype=bool), k=1)
+    denom = float(np.linalg.norm(D_true[mask])) + 1e-12
+
+    out = []
+    for k in range(2, K + 1):
+        S_recon = S_nk[:, :k] @ _regularized_pinv(S_kk[:k, :k]) @ S_nk[:, :k].T
+        D_recon = 1.0 - S_recon
+        err = float(np.linalg.norm(D_true[mask] - D_recon[mask]) / denom)
+        out.append({"n_anchors": k, "error": err})
+    return out
+
+
 def compute_probe_positions(
     extractor: "ModelExtractor",
     anchors: list[str],
@@ -106,8 +151,9 @@ def compute_probe_positions(
 ) -> dict:
     """
     Embed anchor and probe concepts in anchor-relative space and project
-    jointly to 3D. Also compute a reconstruction error curve measuring
-    how much positional accuracy is lost when fewer anchor distances are used.
+    jointly to 3D. Also compute a reconstruction error curve measuring how well
+    the probes' mutual geometry can be rebuilt from their distances to the
+    first k anchors (Nyström), for k = 2..K.
 
     Returns:
         probe_positions:   [n_layers+1, N_probes, 3]
@@ -189,17 +235,14 @@ def compute_probe_positions(
     final_desc = probe_descriptors[-1]           # [N, K]
     uncertainty = np.clip(final_desc.min(axis=1), 0.0, 1.0)  # [N]
 
-    # Reconstruction error curve
-    # How much positional accuracy is lost when only k < K anchor distances are used?
-    # Method: zero-pad partial descriptor → project → compare with full projection.
-    full_final = probe_proj[-1]  # [N, 3] at final layer (normalized)
-    reconstruction_errors = []
-    for k in range(2, K + 1):
-        partial = np.zeros_like(probe_descriptors[-1])  # [N, K]
-        partial[:, :k] = probe_descriptors[-1, :, :k]
-        partial_proj = _project(partial) / max_abs
-        mean_err = float(np.mean(np.linalg.norm(full_final - partial_proj, axis=1)))
-        reconstruction_errors.append({"n_anchors": k, "error": mean_err})
+    # Reconstruction error curve (final layer): can the probe-probe geometry be
+    # recovered from distances to the first k anchors alone?  See
+    # nystrom_reconstruction_errors for the method.
+    final_mean = all_concept_streams[:, -1, :].mean(axis=0)
+    reconstruction_errors = nystrom_reconstruction_errors(
+        probe_streams[:, -1, :] - final_mean,
+        anchor_streams[:, -1, :] - final_mean,
+    )
 
     ev = pca.explained_variance_ratio_.tolist()
     while len(ev) < 3:

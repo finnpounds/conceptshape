@@ -83,14 +83,26 @@ EXAMPLES = [
         "mode": "explore",
         "subMode": "compare",
         "title": "Do different models agree?",
-        "hook": "Two models, same sentence — do they build the same geometry?",
+        "hook": "Two models, same paragraph — do they arrange the same words the same way?",
         "detail": (
             "The Platonic Representation Hypothesis says different models converge on the "
-            "same internal structure. Here Pythia-70M and GPT-2 process the same sentence; "
-            "the CKA bars measure how aligned their geometry is at each depth."
+            "same internal structure. Here Pythia-70M and GPT-2 read the same 32 words. "
+            "Each word is described by its distances to the four anchors, and CKA (the bars) "
+            "measures whether the two models arrange those words alike at each depth; faint "
+            "bars are no better than shuffling the words. Agreement holds through most of "
+            "the stack and collapses at the very last layer, where each model turns its "
+            "representation toward its own next-token prediction. A five-word sentence can't "
+            "show this at all — with that little data the chance level is about 0.8."
         ),
         "call": ("/compare", {
-            "text": "I think therefore I am",
+            # ~32 words: enough rows for CKA to beat its permutation null (≈0.12).
+            # With "I think therefore I am" (5 words) chance is ≈0.8 and nothing is
+            # distinguishable from noise.
+            "text": (
+                "I think, therefore I am. The mind is a substance that thinks; the body is a "
+                "substance extended in space. Doubt is the beginning of wisdom, and what "
+                "survives doubt is certain."
+            ),
             "models": ["pythia-70m", "gpt2"],
             "anchors": ["self", "other", "world", "logic"],
         }),
@@ -124,11 +136,11 @@ EXAMPLES = [
         "hook": "Push a concept into the model's mind and watch its words change.",
         "detail": (
             "Representation engineering: we build a direction from love/joy minus "
-            "hate/fear and inject it into the residual stream at layer 3. The dim "
+            "hate/fear and add it to the residual stream after layer 3. The dim "
             "path is the model untouched; the bright path is the model steered. Below, "
-            "the model's own greedy continuation shifts — 'a jerk' becomes something "
-            "kinder. Low strength nudges meaning; high strength breaks fluency. This "
-            "is the same mechanism behind real AI-safety steering work, in miniature."
+            "the model's own greedy continuation shifts with it. Low strength nudges "
+            "meaning; high strength breaks fluency. This is the same mechanism behind "
+            "real AI-safety steering work, in miniature."
         ),
         "call": ("/steer", {
             "text": "I feel",
@@ -148,7 +160,9 @@ EXAMPLES = [
         "detail": (
             "Each text becomes a cloud of token activations. Persistent homology measures the "
             "cloud's topology — its connected pieces and loops — producing a 'shape fingerprint'. "
-            "The distance matrix shows philosophy, recipe, poetry, and physics are genuinely distinct shapes."
+            "The distance matrix compares the four fingerprints. At forty-odd tokens per text "
+            "this demonstrates the method rather than proving anything about genres; "
+            "docs/experiments.md shows how easily such distances track style instead of meaning."
         ),
         "call": ("/compare-shapes", {
             "texts": [

@@ -113,3 +113,42 @@
 - PlaybackController must be split: AbsolutePlaybackController (range 0→nLayers) and
   ComparePlaybackController (range 0→1). Rendering both simultaneously would fight
   each other — render conditionally based on viewMode.
+
+## 2026-11-04 review — BOS leaks into centering (affects M1, M3, M4, M6, steering)
+- The BOS fix above (skip index 0 when mean-pooling concepts) was only half the
+  story. BOS also sat inside every *per-layer mean* used for centering and inside
+  every PCA fit: absolute view, anchor view, /compare, /steer, /analyze-batch, and
+  the corpus point clouds. Its norm is ~10x a content token at layers 3-4, so a
+  BOS-inclusive mean is mostly BOS/n_tokens and PC1 becomes "the BOS direction".
+  Measured on "I think therefore I am": 87% of variance on PC1, content tokens
+  squashed to a plane, on-screen distances at layers 2-3 uncorrelated (rho ≈ -0.1)
+  with the true 512-d distances. Fix: centre and fit on content tokens only, then
+  *transform* BOS with the same basis (projector.content_slice / unit_scale). The
+  "Hide BOS" toggle hides the sphere; it never hid the effect on the axes.
+- Cross-model CKA with the BOS row included is ≈1.0 between any two models — the
+  shared outlier row dominates a 6-row matrix. Without it a 5-word sentence sits at
+  the permutation null (chance ≈0.8 at the 95th percentile). /compare now aligns
+  tokens into words, drops BOS, and returns `cka_null` + `n_samples`; the tour's
+  convergence example uses a 32-word passage (chance ≈0.12).
+- Anchor view: tokens and anchors must share ONE centering mean (content tokens +
+  anchors), the recipe probe.py already used. Centering anchors by the *sentence*
+  mean made all four anchor distances identical per token (column correlation
+  1.00, explained variance [0.998, 0.002, 0.001] — a line, not a map).
+- Procrustes on uncentered cosine-distance descriptors is ≈1.0 for anything;
+  centre columns first (now done in alignment.procrustes_similarity).
+- Unseeded farthest-point sampling made the same long text differ from itself by
+  more than two different texts differ. Start from the point farthest from the
+  centroid instead.
+- The frontend's attention lookup used `floor(currentLayer)` but attention only
+  exists for blocks 0..n-1; at the default (final) layer nothing drew. Residual
+  index L is the output of block L-1 — show block L-1's edges.
+- Steering: concept streams are indexed like residual_stream (0 = embed, i =
+  blocks.{i-1}.resid_post). A hook on blocks.{L}.resid_post must read the direction
+  at stream index L+1, not L.
+- Endpoints that run PyTorch must be plain `def` + a lock, not `async def`: an
+  async endpoint blocks the event loop, so /health (and the UI's wake probe) fails
+  for the whole duration of any computation.
+- A cold start of the HF Space measured 81 s; keep the wake budget well above that.
+- Lazy imports (`from ripser import ripser` inside a method) hide a missing
+  dependency until request time. The deployed Space ran for months without
+  ripser/persim because requirements.txt never listed them.

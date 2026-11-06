@@ -20,6 +20,17 @@ function getTokenColor(i: number) {
   return TOKEN_COLORS[i % TOKEN_COLORS.length];
 }
 
+// The backend keeps the BOS token (position 0) in every line's trajectories for
+// the Explore view's optional toggle, but it is an attention-sink outlier and
+// never part of the lyric — song mode drops it.
+const BOS_TOKEN = "<|endoftext|>";
+function lyricTrajectories(result: {
+  trajectories: { token: string; positions: number[][] }[];
+}) {
+  const t = result.trajectories;
+  return t.length > 0 && t[0].token === BOS_TOKEN ? t.slice(1) : t;
+}
+
 /** Desaturate a hex color by factor [0,1] for ghost rendering. */
 function desaturate(hex: string, factor = 0.6): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -113,7 +124,7 @@ function GhostLine({
   if (opacity < 0.01) return null;
   return (
     <>
-      {result.trajectories.map((traj, ti) => {
+      {lyricTrajectories(result).map((traj, ti) => {
         const layerIdx = Math.min(Math.max(0, layer), traj.positions.length - 1);
         const pos = traj.positions[layerIdx];
         const color = desaturate(getTokenColor(ti), 0.65);
@@ -152,7 +163,7 @@ function CumulativeCloud({
         const b = Math.round(216 + (75 - 216) * t);
         const color = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 
-        return result.trajectories.map((traj, ti) => {
+        return lyricTrajectories(result).map((traj, ti) => {
           const layerIdx = Math.min(Math.max(0, layer), traj.positions.length - 1);
           const pos = traj.positions[layerIdx];
           return (
@@ -249,7 +260,7 @@ function SongScene({ autoOrbit }: { autoOrbit: boolean }) {
       ))}
 
       {/* Current line */}
-      {currentResult?.trajectories.map((traj, ti) => (
+      {currentResult && lyricTrajectories(currentResult).map((traj, ti) => (
         <group key={ti}>
           <CurrentLineTrail
             positions={traj.positions}

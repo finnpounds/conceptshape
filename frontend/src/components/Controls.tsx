@@ -294,8 +294,15 @@ export default function Controls() {
   const hasCompareData = compareData.length > 0;
   const hasProbeData = probeResults.length > 0;
   const hasSteerData = steerOriginalTrajectories.length > 0;
+  const hasAnyData = hasAbsoluteData || hasAnchorData || hasCompareData || hasProbeData || hasSteerData;
   const steerMaxLayer = (steerNLayers || 6) - 1;
-  const activeNLayers = viewMode === "probe" ? probeNLayers : nLayers;
+  // Layer count of whatever view is active (each view carries its own data).
+  const anchorNLayers = Math.max(0, (anchorTrajectories[0]?.positions.length ?? 1) - 1);
+  const activeNLayers =
+    viewMode === "probe"  ? probeNLayers :
+    viewMode === "steer"  ? steerNLayers :
+    viewMode === "anchor" ? anchorNLayers :
+    nLayers;
   const probeCount = probeSelectedCategories.reduce(
     (n, cat) => n + (CONCEPT_VOCABULARY[cat]?.length ?? 0), 0
   ) + probeCustomConcepts.length;
@@ -543,8 +550,8 @@ export default function Controls() {
         </div>
       )}
 
-      {/* Spread */}
-      {(hasAbsoluteData || hasCompareData) && (
+      {/* Spread — every 3D view scales by it */}
+      {hasAnyData && (
         <div className="control-section">
           <div className="speed-row">
             <label className="info-label">Spread</label>
@@ -578,19 +585,37 @@ export default function Controls() {
                 ))}
               </div>
               <div className="convergence-bar">
-                {metrics.cka.map((v, i) => (
-                  <div
-                    key={i}
-                    className="convergence-bar-seg"
-                    style={{
-                      flex: 1,
-                      background: ckaColor(v),
-                      opacity: 0.4 + v * 0.6,
-                    }}
-                    title={`${(metrics.fractions[i] * 100).toFixed(0)}%: CKA ${v.toFixed(2)}`}
-                  />
-                ))}
+                {metrics.cka.map((v, i) => {
+                  const chance = metrics.cka_null?.[i];
+                  const aboveChance = chance === undefined || v > chance;
+                  return (
+                    <div
+                      key={i}
+                      className="convergence-bar-seg"
+                      style={{
+                        flex: 1,
+                        background: ckaColor(v),
+                        // Segments at or below the shuffled-rows chance level are drawn faint.
+                        opacity: aboveChance ? 0.4 + v * 0.6 : 0.15,
+                      }}
+                      title={
+                        `${(metrics.fractions[i] * 100).toFixed(0)}%: CKA ${v.toFixed(2)}` +
+                        (chance !== undefined ? ` · chance ≤ ${chance.toFixed(2)}` : "")
+                      }
+                    />
+                  );
+                })}
               </div>
+              {metrics.n_samples !== undefined && metrics.cka_null && metrics.cka_null.length > 0 && (
+                <p className="lens-hint" style={{ marginTop: 4 }}>
+                  n = {metrics.n_samples} aligned words · chance level (rows shuffled, 95th
+                  pct) ≈ {(
+                    metrics.cka_null.reduce((a, b) => a + b, 0) / metrics.cka_null.length
+                  ).toFixed(2)}
+                  {" "}— faint bars are not above chance. Short sentences cannot show
+                  convergence; use a paragraph.
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -615,8 +640,8 @@ export default function Controls() {
         </div>
       )}
 
-      {/* BOS */}
-      {(hasAbsoluteData || hasCompareData) && (
+      {/* BOS — applies to absolute, anchor, compare and steer scenes */}
+      {(hasAbsoluteData || hasCompareData || hasAnchorData || hasSteerData) && (
         <div className="control-section">
           <label className="control-label">
             <input type="checkbox" checked={hideBOS}
