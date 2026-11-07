@@ -39,6 +39,27 @@ export interface PairMetrics {
   fractions: number[];
   cka: number[];
   procrustes: number[];
+  cka_null?: number[];  // 95th-percentile CKA with rows shuffled (chance level)
+  n_samples?: number;   // aligned words the metrics were computed on
+}
+
+// Position 0 is the BOS attention sink. The backend keeps it out of every
+// PCA fit and scales the scene to the content tokens, so BOS can legitimately
+// land outside the [-1, 1] box (≈2x at mid layers, ≈3.5x in the steer view).
+// For DISPLAY only, pull it in to a fixed radius along its own direction so
+// "show BOS" still puts a sphere on screen; nothing else reads these values.
+const BOS_TOKEN = "<|endoftext|>";
+const BOS_DISPLAY_RADIUS = 1.5;
+function clampBosForDisplay(trajectories: TokenTrajectory[]): TokenTrajectory[] {
+  if (trajectories.length === 0 || trajectories[0].token !== BOS_TOKEN) return trajectories;
+  const bos = trajectories[0];
+  const positions = bos.positions.map((p) => {
+    const r = Math.hypot(p[0], p[1], p[2]);
+    if (r <= BOS_DISPLAY_RADIUS) return p;
+    const k = BOS_DISPLAY_RADIUS / r;
+    return [p[0] * k, p[1] * k, p[2] * k];
+  });
+  return [{ ...bos, positions }, ...trajectories.slice(1)];
 }
 
 interface ExplorerState {
@@ -261,7 +282,7 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   setTrajectoryData: (data) =>
     set({
       tokens: data.tokens,
-      trajectories: data.trajectories,
+      trajectories: clampBosForDisplay(data.trajectories),
       attention: data.attention,
       logitLens: data.logitLens,
       nLayers: data.nLayers,
@@ -319,7 +340,8 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
       anchorLabels: data.anchorLabels,
       anchorExplainedVariance: data.anchorExplainedVariance,
       viewMode: "anchor",
-      currentLayer: 0,
+      // Open at the final layer like every other view (assembled meaning first).
+      currentLayer: Math.max(0, (data.anchorTrajectories[0]?.positions.length ?? 1) - 1),
       isPlaying: false,
     }),
   setIsAnchorLoading: (loading) => set({ isAnchorLoading: loading }),
@@ -332,8 +354,8 @@ export const useExplorerStore = create<ExplorerState>((set) => ({
   setSteerStrength: (strength) => set({ steerStrength: strength }),
   setSteerData: (data) =>
     set({
-      steerOriginalTrajectories: data.steerOriginalTrajectories,
-      steerSteeredTrajectories: data.steerSteeredTrajectories,
+      steerOriginalTrajectories: clampBosForDisplay(data.steerOriginalTrajectories),
+      steerSteeredTrajectories: clampBosForDisplay(data.steerSteeredTrajectories),
       steerGenerationOriginal: data.steerGenerationOriginal,
       steerGenerationSteered: data.steerGenerationSteered,
       steerNLayers: data.steerNLayers,

@@ -134,10 +134,19 @@ function AttentionEdges() {
     pos: [number, number, number];
   } | null>(null);
 
+  // Heads averaged into each edge — surfaced in the tooltip so "weight" is honest.
+  const nHeads = useMemo(() => new Set(attention.map((e) => e.head)).size, [attention]);
+
   const edges = useMemo(() => {
     if (!showAttention || attention.length === 0 || viewMode !== "absolute") return [];
 
-    const layerIdx = Math.floor(currentLayer);
+    // Residual index L is the OUTPUT of block L-1, so the edges that belong at
+    // scrubber position L are block L-1's attention — the heads that just moved
+    // the tokens. Attention exists for blocks 0..nLayers-1 only; the previous
+    // `floor(currentLayer)` lookup found nothing at the default (final) layer,
+    // so turning the toggle on drew no edges until the user scrubbed back.
+    const nAttnLayers = attention.reduce((m, e) => Math.max(m, e.layer + 1), 0);
+    const layerIdx = Math.min(Math.max(0, Math.ceil(currentLayer) - 1), nAttnLayers - 1);
     const layerEdges = attention.filter((e) => e.layer === layerIdx);
     if (layerEdges.length === 0) return [];
 
@@ -224,6 +233,9 @@ function AttentionEdges() {
             <span style={{ color: "#888899" }}>{hoveredEdge.fromTok}</span>{" → "}
             <span style={{ color: "#888899" }}>{hoveredEdge.toTok}</span><br />
             <span style={{ color: "#555566" }}>weight: </span>{hoveredEdge.weight.toFixed(3)}
+            <span style={{ color: "#555566" }}>
+              {` · mean of ${nHeads} heads${hideBOS ? ", BOS share removed" : ""}`}
+            </span>
           </div>
         </Html>
       )}
@@ -667,7 +679,11 @@ export default function Viewport() {
     .filter((i) => !(hideBOS && i === 0));
 
   return (
-    <Canvas dpr={[1, 2]} camera={{ position: [4, 3, 4], fov: 50 }} style={{ background: "#0a0a0f" }}>
+    // Content tokens fill the [-1, 1]^3 box (×4 scene units) now that BOS no
+    // longer defines the scene's extent, so the camera sits back far enough to
+    // frame the whole box (it was pulled in to [4, 3, 4] when BOS squashed
+    // everything into a corner).
+    <Canvas dpr={[1, 2]} camera={{ position: [6.5, 4.5, 6.5], fov: 50 }} style={{ background: "#0a0a0f" }}>
       <ambientLight intensity={0.4} />
       <pointLight position={[10, 10, 10]} intensity={0.8} />
 

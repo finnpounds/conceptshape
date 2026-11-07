@@ -2,25 +2,45 @@
 main.py — FastAPI backend for Semantic Geometry Explorer.
 
 Endpoints:
-    POST /analyze   — text → 3D trajectories + attention patterns
-    GET  /model-info — model metadata (layers, dims, etc.)
+    POST /analyze         — text → 3D trajectories + attention + logit lens
+    POST /anchor-analyze  — anchor-relative trajectories
+    POST /compare         — same text through several models (CKA / Procrustes)
+    POST /probe           — concept vocabulary in anchor-relative space
+    POST /steer           — activation steering (original vs steered)
+    POST /analyze-batch   — many lines in one shared PCA basis (song mode)
+    POST /text-shape      — persistent homology of one text's activation cloud
+    POST /compare-shapes  — pairwise topological distances between texts
+    GET  /model-info, /models, /health
+
+Conventions shared by every endpoint (see projector.py / anchor.py):
+  * position 0 is the BOS attention sink; it is excluded from every per-layer
+    mean, PCA fit, CKA and point cloud, and only *transformed* for display;
+  * anchor-relative descriptors centre tokens and anchors by one shared mean.
 """
 
+import functools
 import os
+import threading
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 import numpy as np
 
 from app.extractor import ModelExtractor
-from app.projector import Projector
+from app.projector import Projector, content_slice, unit_scale
 from app.anchor import (
     compute_anchor_descriptors,
     compute_anchor_self_descriptors,
+    joint_layer_means,
     project_to_3d,
 )
-from app.alignment import pairwise_metrics_across_depth
+from app.alignment import (
+    cka_permutation_null,
+    pairwise_metrics_across_depth,
+    word_groups,
+    word_level,
+)
 from app.probe import compute_probe_positions, get_concept_category
 from app.topology import TopologyAnalyzer
 
@@ -34,6 +54,32 @@ _projector: Projector | None = None
 _model_registry: dict[str, ModelExtractor] = {}
 
 SUPPORTED_MODELS = ["pythia-70m", "gpt2", "pythia-160m", "pythia-160m-deduped"]
+
+# All model work is synchronous PyTorch. The endpoints that do it are plain
+# `def` (FastAPI runs those in a threadpool, so /health keeps answering while a
+# request computes) and hold this lock, so compute is serialised on the single
+# CPU and shared state (_projector.method, the model registry, the concept
+# cache) is never raced by concurrent visitors.
+_compute_lock = threading.Lock()
+
+
+def _serialized(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with _compute_lock:
+            return fn(*args, **kwargs)
+    return wrapper
+
+
+# Caps for the public corpus endpoints. The Pydantic schema allows book-length
+# input for local use; a free CPU host should not accept it (the milestone-6
+# notes estimate ~27 min for 80k tokens and minutes for 10k-point persistence,
+# during which the single worker is busy). Override via env.
+MAX_SHAPE_CHARS = int(os.environ.get("SGE_MAX_SHAPE_CHARS", "20000"))
+MAX_SHAPE_POINTS = int(os.environ.get("SGE_MAX_SHAPE_POINTS", "3000"))
+
+# Pydantic 2 reserves the "model_" prefix; our fields are literally model names.
+_NO_PROTECTED_NS = ConfigDict(protected_namespaces=())
 
 
 def _get_or_load_model(name: str) -> ModelExtractor:
@@ -108,6 +154,7 @@ class LensPrediction(BaseModel):
 
 
 class AnalyzeResponse(BaseModel):
+    model_config = _NO_PROTECTED_NS
     tokens: list[str]
     n_layers: int
     trajectories: list[TokenTrajectory]
@@ -120,6 +167,7 @@ class AnalyzeResponse(BaseModel):
 
 
 class ModelInfo(BaseModel):
+    model_config = _NO_PROTECTED_NS
     model_name: str
     n_layers: int
     d_model: int
@@ -139,6 +187,7 @@ class AnchorMarker(BaseModel):
 
 
 class AnchorAnalyzeResponse(BaseModel):
+    model_config = _NO_PROTECTED_NS
     tokens: list[str]
     n_layers: int
     model_name: str
@@ -164,16 +213,19 @@ async def model_info():
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
-async def analyze(req: AnalyzeRequest):
+@_serialized
+def analyze(req: AnalyzeRequest):
     if _extractor is None or _projector is None:
         raise HTTPException(503, "Model not loaded")
 
     # Extract activations
     raw = _extractor.extract(req.text)
 
-    # Project to 3D
+    # Project to 3D (BOS kept out of the centering and the fit)
     _projector.method = req.method
-    projection = _projector.project_trajectories(raw["residual_stream"])
+    projection = _projector.project_trajectories(
+        raw["residual_stream"], has_bos=raw["has_bos"]
+    )
 
     positions = projection["positions"]  # [n_layers+1, n_tokens, 3]
     n_layer_steps, n_tokens, _ = positions.shape
@@ -214,7 +266,8 @@ async def analyze(req: AnalyzeRequest):
 
 
 @app.post("/anchor-analyze", response_model=AnchorAnalyzeResponse)
-async def anchor_analyze(req: AnchorAnalyzeRequest):
+@_serialized
+def anchor_analyze(req: AnchorAnalyzeRequest):
     """
     Compute anchor-relative trajectories (Milestone 3).
     Each token is described by its cosine distances to anchor concept embeddings
@@ -233,15 +286,20 @@ async def anchor_analyze(req: AnchorAnalyzeRequest):
         for anchor in req.anchors
     ], axis=0)  # [n_anchors, n_layers+1, d_model]
 
+    # One shared per-layer centre for tokens AND anchors (content tokens only)
+    layer_means = joint_layer_means(residual_stream, anchor_streams, has_bos=raw["has_bos"])
+
     # Compute anchor-relative descriptors
-    descriptors = compute_anchor_descriptors(residual_stream, anchor_streams)
+    descriptors = compute_anchor_descriptors(
+        residual_stream, anchor_streams, layer_means=layer_means
+    )
     # shape: [n_layers+1, n_tokens, n_anchors]
 
-    anchor_self_dists = compute_anchor_self_descriptors(anchor_streams)
+    anchor_self_dists = compute_anchor_self_descriptors(anchor_streams, layer_means=layer_means)
     # shape: [n_layers+1, n_anchors, n_anchors]
 
-    # Project to 3D (jointly across all layers)
-    projection = project_to_3d(descriptors, anchor_self_dists)
+    # Project to 3D (jointly across all layers; BOS row transformed, not fit)
+    projection = project_to_3d(descriptors, anchor_self_dists, has_bos=raw["has_bos"])
     positions = projection["positions"]           # [n_layers+1, n_tokens, 3]
     anchor_positions = projection["anchor_positions"]  # [n_layers+1, n_anchors, 3]
 
@@ -291,6 +349,7 @@ class CompareRequest(BaseModel):
 
 
 class ModelComparison(BaseModel):
+    model_config = _NO_PROTECTED_NS
     model_name: str
     tokens: list[str]
     n_layers: int
@@ -299,8 +358,13 @@ class ModelComparison(BaseModel):
 
 class PairMetrics(BaseModel):
     fractions: list[float]    # [0.0, ..., 1.0] — normalised depth
-    cka: list[float]          # linear CKA at each fraction
+    cka: list[float]          # linear CKA at each fraction (word-aligned content tokens)
     procrustes: list[float]   # Procrustes similarity at each fraction
+    # 95th percentile of CKA with the rows shuffled — the chance level. A CKA
+    # below this is noise; with a 5-word sentence chance is ~0.8.
+    cka_null: list[float] = []
+    # Number of aligned rows (words) the metrics were computed on.
+    n_samples: int = 0
 
 
 class CompareResponse(BaseModel):
@@ -311,7 +375,8 @@ class CompareResponse(BaseModel):
 
 
 @app.post("/compare", response_model=CompareResponse)
-async def compare(req: CompareRequest):
+@_serialized
+def compare(req: CompareRequest):
     """
     Run the same text through multiple models, compute anchor-relative
     trajectories in a jointly projected 3D space, and return pairwise
@@ -339,59 +404,66 @@ async def compare(req: CompareRequest):
             ext.extract_concept_stream(anchor) for anchor in req.anchors
         ], axis=0)  # [n_anchors, n_layers+1, d_model]
 
-        descriptors = compute_anchor_descriptors(raw["residual_stream"], anchor_streams)
+        rs = raw["residual_stream"]
+        layer_means = joint_layer_means(rs, anchor_streams, has_bos=raw["has_bos"])
+        descriptors = compute_anchor_descriptors(rs, anchor_streams, layer_means=layer_means)
         # [n_layers+1, n_tokens, n_anchors]
 
         model_raw[name] = {
             "tokens": raw["tokens"],
             "n_layers": ext.n_layers,
             "descriptors": descriptors,
+            "content": content_slice(rs.shape[1], raw["has_bos"]),
+            # Word-level descriptors so models with different tokenizers are
+            # compared row-for-row on the same words.
+            "words": word_level(descriptors, word_groups(raw["tokens"], raw["has_bos"])),
         }
 
-    # Joint PCA across ALL models' anchor-descriptor data so axes are shared
+    # Joint PCA across ALL models' CONTENT-token descriptors so axes are shared.
+    # The BOS row is transformed with the same basis but never shapes it.
     from sklearn.decomposition import PCA as _PCA
-    all_flat = np.concatenate([
-        d["descriptors"].reshape(-1, d["descriptors"].shape[-1])
+    n_anchors = len(req.anchors)
+    fit_flat = np.concatenate([
+        d["descriptors"][:, d["content"], :].reshape(-1, n_anchors)
         for d in model_raw.values()
     ], axis=0)
-
-    n_anchors = all_flat.shape[1]
-    n_comp = max(1, min(3, n_anchors, all_flat.shape[0] - 1))
+    n_comp = max(1, min(3, n_anchors, fit_flat.shape[0] - 1))
     joint_pca = _PCA(n_components=n_comp)
-    joint_pca.fit(all_flat)
+    joint_pca.fit(fit_flat)
 
     # Project each model into the shared space
     for data in model_raw.values():
         desc = data["descriptors"]
-        flat = desc.reshape(-1, n_anchors)
-        proj = joint_pca.transform(flat)
+        proj = joint_pca.transform(desc.reshape(-1, n_anchors))
         if n_comp < 3:
             proj = np.concatenate([proj, np.zeros((proj.shape[0], 3 - n_comp))], axis=1)
         n_ls, n_tok = desc.shape[:2]
         data["positions"] = proj.reshape(n_ls, n_tok, 3)
 
-    # Normalize all positions jointly to [-1, 1]
-    all_pos = np.concatenate([d["positions"].reshape(-1, 3) for d in model_raw.values()], axis=0)
-    max_abs = np.abs(all_pos).max(axis=0)
-    max_abs = np.where(max_abs < 1e-8, 1.0, max_abs)
+    # Normalize all positions jointly to [-1, 1] on the content tokens' extent
+    scale = unit_scale(*[d["positions"][:, d["content"], :] for d in model_raw.values()])
     for data in model_raw.values():
-        data["positions"] = data["positions"] / max_abs
+        data["positions"] = data["positions"] / scale
 
-    # Pairwise metrics (CKA + Procrustes) across normalised depth fractions
+    # Pairwise metrics (CKA + Procrustes) across normalised depth fractions, on
+    # word-aligned CONTENT tokens. The BOS row is a shared outlier that by
+    # itself gave CKA ≈ 1.0 between any two models; with it removed, a short
+    # sentence sits near the permutation null — hence `cka_null` and
+    # `n_samples` in the response, so the UI can say when a curve means nothing.
     names = list(model_raw.keys())
     pairwise: dict[str, PairMetrics] = {}
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
             a, b = names[i], names[j]
-            metrics = pairwise_metrics_across_depth(
-                model_raw[a]["descriptors"],
-                model_raw[b]["descriptors"],
-                n_fractions=7,
-            )
+            words_a, words_b = model_raw[a]["words"], model_raw[b]["words"]
+            n = min(words_a.shape[1], words_b.shape[1])
+            metrics = pairwise_metrics_across_depth(words_a, words_b, n_fractions=7)
             pairwise[f"{a} vs {b}"] = PairMetrics(
                 fractions=metrics["fractions"],
                 cka=metrics["cka"],
                 procrustes=metrics["procrustes"],
+                cka_null=cka_permutation_null(words_a, words_b, n_fractions=7),
+                n_samples=n,
             )
 
     # Build response
@@ -446,14 +518,16 @@ class ProbeResponse(BaseModel):
 
 
 @app.post("/probe", response_model=ProbeResponse)
-async def probe(req: ProbeRequest):
+@_serialized
+def probe(req: ProbeRequest):
     """
     Embed a vocabulary of probe concepts in anchor-relative space (Milestone 5).
 
     Runs forward passes for each unique concept (cached after first call),
     projects all probes + anchors into a jointly fitted 3D PCA space,
-    and returns per-probe positions across layers plus a reconstruction error
-    curve measuring how much positional accuracy is lost with fewer anchors.
+    and returns per-probe positions across layers plus a Nyström reconstruction
+    error curve: how well the probes' mutual geometry is recovered from their
+    distances to the first k anchors.
     """
     if req.model not in SUPPORTED_MODELS:
         raise HTTPException(400, f"Unsupported model '{req.model}'. Choose from: {SUPPORTED_MODELS}")
@@ -506,6 +580,7 @@ class SteerRequest(BaseModel):
 
 
 class SteerResponse(BaseModel):
+    model_config = _NO_PROTECTED_NS
     tokens: list[str]
     n_layers: int
     layer: int
@@ -519,7 +594,8 @@ class SteerResponse(BaseModel):
 
 
 @app.post("/steer", response_model=SteerResponse)
-async def steer(req: SteerRequest):
+@_serialized
+def steer(req: SteerRequest):
     """
     Inject a (positive − negative) concept direction into the residual stream at
     a chosen layer/strength, and return the original + steered trajectories in a
@@ -542,31 +618,37 @@ async def steer(req: SteerRequest):
     rs_o = result["residual_original"]  # [L+1, T, d]
     rs_s = result["residual_steered"]
     d_model = rs_o.shape[-1]
+    content = content_slice(rs_o.shape[1], result["has_bos"])
 
-    # Center BOTH by the ORIGINAL per-layer mean: removes inter-layer norm growth
-    # (like the absolute view) while PRESERVING the injected displacement — a
-    # per-condition centering would cancel the constant steering vector.
-    layer_means = rs_o.mean(axis=1, keepdims=True)
+    # Center BOTH by the ORIGINAL per-layer mean over CONTENT tokens: removes
+    # inter-layer norm growth (like the absolute view) while PRESERVING the
+    # injected displacement — a per-condition centering would cancel the
+    # constant steering vector. BOS stays out of the mean and the fit.
+    layer_means = rs_o[:, content, :].mean(axis=1, keepdims=True)
     o_c = rs_o - layer_means
     s_c = rs_s - layer_means
 
     from sklearn.decomposition import PCA as _PCA
-    union = np.concatenate([o_c.reshape(-1, d_model), s_c.reshape(-1, d_model)], axis=0)
-    pca = _PCA(n_components=3)
+    union = np.concatenate([
+        o_c[:, content, :].reshape(-1, d_model),
+        s_c[:, content, :].reshape(-1, d_model),
+    ], axis=0)
+    n_comp = max(1, min(3, union.shape[0] - 1, d_model))
+    pca = _PCA(n_components=n_comp)
     pca.fit(union)
 
     def project(x_c: np.ndarray) -> np.ndarray:
         p = pca.transform(x_c.reshape(-1, d_model))
+        if n_comp < 3:
+            p = np.concatenate([p, np.zeros((p.shape[0], 3 - n_comp))], axis=1)
         return p.reshape(x_c.shape[0], x_c.shape[1], 3)
 
     pos_o = project(o_c)
     pos_s = project(s_c)
 
-    allp = np.concatenate([pos_o.reshape(-1, 3), pos_s.reshape(-1, 3)], axis=0)
-    max_abs = np.abs(allp).max(axis=0)
-    max_abs = np.where(max_abs < 1e-8, 1.0, max_abs)
-    pos_o = pos_o / max_abs
-    pos_s = pos_s / max_abs
+    scale = unit_scale(pos_o[:, content, :], pos_s[:, content, :])
+    pos_o = pos_o / scale
+    pos_s = pos_s / scale
 
     toks = result["tokens"]
     n_tok = len(toks)
@@ -612,6 +694,7 @@ class BatchLineResult(BaseModel):
 
 
 class AnalyzeBatchResponse(BaseModel):
+    model_config = _NO_PROTECTED_NS
     results: list[BatchLineResult]
     n_layers: int
     explained_variance: list[float]
@@ -619,7 +702,8 @@ class AnalyzeBatchResponse(BaseModel):
 
 
 @app.post("/analyze-batch", response_model=AnalyzeBatchResponse)
-async def analyze_batch(req: AnalyzeBatchRequest):
+@_serialized
+def analyze_batch(req: AnalyzeBatchRequest):
     """
     Extract residual streams for every lyric line and project them into a
     SHARED 3D coordinate system via joint PCA.
@@ -627,68 +711,69 @@ async def analyze_batch(req: AnalyzeBatchRequest):
     All positions are comparable across lines — a token cluster in line 12
     occupies the same region as a semantically similar cluster in line 3.
     This shared basis is what makes the ghost-trail accumulation meaningful.
+    Blank lines are skipped; `line_index` is always the index in the request.
     """
     if _extractor is None:
         raise HTTPException(503, "Model not loaded")
 
-    # 1. Extract residual streams for all lines
-    all_extractions = []
-    for line in req.lines:
+    # 1. Extract residual streams for all non-empty lines, keeping each line's
+    #    ORIGINAL index so results stay aligned with the request.
+    extractions: list[tuple[int, dict]] = []
+    for i, line in enumerate(req.lines):
         if not line.strip():
             continue
         try:
-            all_extractions.append(_extractor.extract(line.strip()))
+            extractions.append((i, _extractor.extract(line.strip())))
         except Exception as e:
             raise HTTPException(500, f"Extraction failed for line '{line[:30]}': {e}")
 
-    if not all_extractions:
+    if not extractions:
         raise HTTPException(400, "No non-empty lines provided")
 
-    # 2. Fit a joint PCA basis on ALL activations, per-layer centered.
-    # Per-layer centering removes inter-layer norm growth so PCA captures
-    # within-layer token differences rather than the layer-to-layer magnitude shift.
-    all_centered = []
-    for raw in all_extractions:
+    # 2. Per-layer centre each line by its own CONTENT-token mean (see
+    #    projector.py for why BOS must stay out of the mean and the fit), then
+    #    fit ONE PCA basis on all lines' content tokens.
+    def centered(raw: dict) -> tuple[np.ndarray, slice]:
         rs = raw["residual_stream"]  # [L+1, T, D]
-        layer_means = rs.mean(axis=1, keepdims=True)
-        all_centered.append((rs - layer_means).reshape(-1, rs.shape[-1]))
-    all_flat = np.concatenate(all_centered, axis=0)
+        content = content_slice(rs.shape[1], raw["has_bos"])
+        return rs - rs[:, content, :].mean(axis=1, keepdims=True), content
 
-    n_comp = min(3, all_flat.shape[1], all_flat.shape[0] - 1)
+    centered_all = [centered(raw) for _, raw in extractions]
+    d_model = centered_all[0][0].shape[-1]
+    fit_flat = np.concatenate(
+        [c[:, content, :].reshape(-1, d_model) for c, content in centered_all], axis=0
+    )
+    n_comp = max(1, min(3, d_model, fit_flat.shape[0] - 1))
     from sklearn.decomposition import PCA as _PCA
-    mean = all_flat.mean(axis=0)
     pca = _PCA(n_components=n_comp)
-    pca.fit(all_flat - mean)
+    pca.fit(fit_flat)
 
-    # 3. Project each line using the shared per-layer-centered basis
+    # 3. Project each line (BOS included, for optional display) with the shared basis
     all_positions = []
-    for raw in all_extractions:
-        rs = raw["residual_stream"]
-        layer_means = rs.mean(axis=1, keepdims=True)
-        flat = (rs - layer_means).reshape(-1, rs.shape[-1])
-        proj = pca.transform(flat - mean)
+    for c, _content in centered_all:
+        proj = pca.transform(c.reshape(-1, d_model))
         if n_comp < 3:
             proj = np.concatenate([proj, np.zeros((proj.shape[0], 3 - n_comp))], axis=1)
-        n_ls, n_tok = rs.shape[:2]
+        n_ls, n_tok = c.shape[:2]
         all_positions.append(proj.reshape(n_ls, n_tok, 3))
 
-    # 4. Normalize JOINTLY across all lines so scale is consistent
-    all_cat = np.concatenate([p.reshape(-1, 3) for p in all_positions], axis=0)
-    max_abs = np.abs(all_cat).max(axis=0)
-    max_abs = np.where(max_abs < 1e-8, 1.0, max_abs)
-    all_positions = [p / max_abs for p in all_positions]
+    # 4. Normalize JOINTLY across all lines (content extent) so scale is consistent
+    scale = unit_scale(*[
+        p[:, content, :] for p, (_, content) in zip(all_positions, centered_all)
+    ])
+    all_positions = [p / scale for p in all_positions]
 
     # 5. Build response
     results = []
-    for i, (raw, positions) in enumerate(zip(all_extractions, all_positions)):
+    for (orig_idx, raw), positions in zip(extractions, all_positions):
         n_ls, n_tok, _ = positions.shape
         trajectories = [
             TokenTrajectory(token=raw["tokens"][t], positions=positions[:, t, :].tolist())
             for t in range(n_tok)
         ]
         results.append(BatchLineResult(
-            line_index=i,
-            text=req.lines[i],
+            line_index=orig_idx,
+            text=req.lines[orig_idx],
             tokens=raw["tokens"],
             trajectories=trajectories,
         ))
@@ -770,8 +855,31 @@ def _shape_to_response(shape, n_points_sampled: int) -> TextShapeResponse:
     )
 
 
+def _check_shape_request(texts: list[str], layer: int, max_points: int) -> None:
+    """Validate layer and enforce the deployment's size caps (400/413, not 500)."""
+    assert _extractor is not None
+    if layer < -1 or layer > _extractor.n_layers:
+        raise HTTPException(
+            400, f"layer must be -1 (last) or 0..{_extractor.n_layers} for {_extractor.model_name}"
+        )
+    longest = max(len(t) for t in texts)
+    if longest > MAX_SHAPE_CHARS:
+        raise HTTPException(
+            413,
+            f"Text too long for this deployment ({longest} > {MAX_SHAPE_CHARS} chars). "
+            "Raise SGE_MAX_SHAPE_CHARS on the server to allow more.",
+        )
+    if max_points > MAX_SHAPE_POINTS:
+        raise HTTPException(
+            400,
+            f"max_points above {MAX_SHAPE_POINTS} is not allowed on this deployment "
+            "(SGE_MAX_SHAPE_POINTS).",
+        )
+
+
 @app.post("/text-shape", response_model=TextShapeResponse)
-async def text_shape(req: TextShapeRequest):
+@_serialized
+def text_shape(req: TextShapeRequest):
     """
     Extract token activations at a target layer, subsample for performance,
     compute persistent homology, and return a topological shape fingerprint.
@@ -781,6 +889,7 @@ async def text_shape(req: TextShapeRequest):
     """
     if _extractor is None:
         raise HTTPException(503, "Model not loaded")
+    _check_shape_request([req.text], req.layer, req.max_points)
 
     label = req.label or req.text[:40].strip()
 
@@ -800,7 +909,8 @@ async def text_shape(req: TextShapeRequest):
 
 
 @app.post("/compare-shapes", response_model=CorpusCompareResponse)
-async def compare_shapes(req: CorpusCompareRequest):
+@_serialized
+def compare_shapes(req: CorpusCompareRequest):
     """
     Compute topological fingerprints for multiple texts and return pairwise
     Wasserstein or bottleneck distances between persistence diagrams.
@@ -809,6 +919,7 @@ async def compare_shapes(req: CorpusCompareRequest):
     """
     if _extractor is None:
         raise HTTPException(503, "Model not loaded")
+    _check_shape_request(req.texts, req.layer, req.max_points)
 
     labels = req.labels if len(req.labels) == len(req.texts) else [
         t[:30].strip() for t in req.texts

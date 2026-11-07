@@ -78,10 +78,10 @@
       "mode": "explore",
       "subMode": "compare",
       "title": "Do different models agree?",
-      "hook": "Two models, same sentence \u2014 do they build the same geometry?",
-      "detail": "The Platonic Representation Hypothesis says different models converge on the same internal structure. Here Pythia-70M and GPT-2 process the same sentence; the CKA bars measure how aligned their geometry is at each depth.",
+      "hook": "Two models, same paragraph \u2014 do they arrange the same words the same way?",
+      "detail": "The Platonic Representation Hypothesis says different models converge on the same internal structure. Here Pythia-70M and GPT-2 read the same 32 words. Each word is described by its distances to the four anchors, and CKA (the bars) measures whether the two models arrange those words alike at each depth; faint bars are no better than shuffling the words. Agreement holds through most of the stack and collapses at the very last layer, where each model turns its representation toward its own next-token prediction. A five-word sentence can't show this at all \u2014 with that little data the chance level is about 0.8.",
       "params": {
-        "text": "I think therefore I am",
+        "text": "I think, therefore I am. The mind is a substance that thinks; the body is a substance extended in space. Doubt is the beginning of wisdom, and what survives doubt is certain.",
         "models": [
           "pythia-70m",
           "gpt2"
@@ -150,7 +150,7 @@
       "subMode": "steer",
       "title": "Steering the model",
       "hook": "Push a concept into the model's mind and watch its words change.",
-      "detail": "Representation engineering: we build a direction from love/joy minus hate/fear and inject it into the residual stream at layer 3. The dim path is the model untouched; the bright path is the model steered. Below, the model's own greedy continuation shifts \u2014 'a jerk' becomes something kinder. Low strength nudges meaning; high strength breaks fluency. This is the same mechanism behind real AI-safety steering work, in miniature.",
+      "detail": "Representation engineering: we build a direction from love/joy minus hate/fear and add it to the residual stream after layer 3. The dim path is the model untouched; the bright path is the model steered. Below, the model's own greedy continuation shifts with it. Low strength nudges meaning; high strength breaks fluency. This is the same mechanism behind real AI-safety steering work, in miniature.",
       "params": {
         "text": "I feel",
         "positive": "love joy happiness delight",
@@ -167,7 +167,7 @@
       "subMode": "corpus",
       "title": "The shape of a text",
       "hook": "Different kinds of writing have measurably different geometric shape.",
-      "detail": "Each text becomes a cloud of token activations. Persistent homology measures the cloud's topology \u2014 its connected pieces and loops \u2014 producing a 'shape fingerprint'. The distance matrix shows philosophy, recipe, poetry, and physics are genuinely distinct shapes.",
+      "detail": "Each text becomes a cloud of token activations. Persistent homology measures the cloud's topology \u2014 its connected pieces and loops \u2014 producing a 'shape fingerprint'. The distance matrix compares the four fingerprints. At forty-odd tokens per text this demonstrates the method rather than proving anything about genres; docs/experiments.md shows how easily such distances track style instead of meaning.",
       "params": {
         "texts": [
           "I think, therefore I am. The mind is a substance that thinks. The body is a substance that is extended in space. These two substances are distinct and separate. Doubt is the beginning of wisdom.",

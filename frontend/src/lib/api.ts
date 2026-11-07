@@ -41,6 +41,8 @@ export interface CompareResponse {
     fractions: number[];
     cka: number[];
     procrustes: number[];
+    cka_null?: number[];  // chance level: 95th-pct CKA with rows shuffled
+    n_samples?: number;   // aligned words the metrics were computed on
   }>;
   anchors: string[];
   explained_variance: number[];

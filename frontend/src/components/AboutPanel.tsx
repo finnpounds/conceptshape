@@ -104,7 +104,7 @@ export default function AboutPanel() {
           </a>
           <span className="about-note">
             Curated examples load instantly. “Run your own text” uses a live ML
-            backend that may take ~30s to wake.
+            backend that may take a minute or two to wake.
           </span>
         </div>
       </div>

@@ -206,7 +206,12 @@ class TopologyAnalyzer:
         if n >= N:
             return np.arange(N)
 
-        selected = [np.random.randint(N)]
+        # Deterministic start: the point farthest from the centroid. An unseeded
+        # random start made the subsample — and therefore the persistence
+        # diagram — differ between runs, so the same long text compared with
+        # itself scored a larger "distance" than two different texts.
+        centroid = points.mean(axis=0)
+        selected = [int(np.argmax(np.sum((points - centroid) ** 2, axis=1)))]
         # Distances from each point to the nearest already-selected point
         min_dists = np.full(N, np.inf)
 

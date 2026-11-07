@@ -17,7 +17,7 @@ layers, each token moves, bends, and clusters — picking up context from its
 neighbours. This tool extracts that hidden motion (the *residual stream*) and
 renders it as something you can orbit, scrub, and explore in your browser.
 
-Five things to explore:
+Six things to explore:
 
 | Mode | Question it answers |
 |------|---------------------|
@@ -31,6 +31,17 @@ Five things to explore:
 The research question behind it: the **Platonic Representation Hypothesis** — the
 idea that models trained differently converge on the same underlying geometry of
 meaning.
+
+## Method notes
+
+Position 0 of every input is the BOS token, which acts as an attention sink and
+has activations up to ~10× larger than any real token at mid layers. Every
+per-layer mean, PCA fit, CKA and point cloud in the backend therefore excludes
+it; it is only *transformed* into the fitted space so it can optionally be
+shown. Anchor-relative views centre tokens and anchors by one shared mean, and
+cross-model CKA is computed on word-aligned content tokens and reported next to
+a shuffled-rows chance level. The reasoning and measurements are in
+[docs/review-2026-11-04.md](docs/review-2026-11-04.md).
 
 ## Experiments
 
@@ -55,7 +66,7 @@ in two halves:
   orbit the scene, scrub layers, toggle attention. This is the bulletproof core.
 - **An optional live ML backend** — for visitors who want to run *their own* text.
   It's a containerized FastAPI service (PyTorch + TransformerLens) on a free-tier
-  ML host. If it's asleep, the UI offers a one-click "wake (~30s)" and the gallery
+  ML host. If it's asleep, the UI offers a one-click "wake (~1–2 min)" and the gallery
   keeps working in the meantime.
 
 ```
@@ -113,7 +124,9 @@ This writes JSON + a manifest into `frontend/public/gallery/`.
 - **Backend → Hugging Face Spaces** (Docker SDK) or Render. `backend/Dockerfile`
   is CPU-only and pre-caches the model. Set `SGE_ALLOWED_ORIGINS` to your Vercel
   origin if you use a custom domain (any `*.vercel.app` origin is allowed by
-  default).
+  default). The public corpus endpoints are capped by `SGE_MAX_SHAPE_CHARS`
+  (default 20000) and `SGE_MAX_SHAPE_POINTS` (default 3000) so one request
+  cannot occupy a free CPU host for minutes; raise them for a private deploy.
 
 ## Project layout
 

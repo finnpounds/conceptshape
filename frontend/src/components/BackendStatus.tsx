@@ -47,7 +47,9 @@ export default function BackendStatus() {
     if (wakingRef.current) return;
     wakingRef.current = true;
     setBackendStatus("checking");
-    const deadline = Date.now() + 70_000; // ~70s budget for a cold start
+    // A cold start of the free HF Space measured 81s to the first healthy
+    // response (2026-11-04); the old 70s budget gave up just before it came up.
+    const deadline = Date.now() + 150_000;
     while (Date.now() < deadline) {
       if (await ping(8000)) {
         setBackendStatus("online");
@@ -74,7 +76,7 @@ export default function BackendStatus() {
       <span className="backend-label">{m.label}</span>
       {backendStatus === "offline" && HAS_LIVE_BACKEND && (
         <button className="backend-wake" onClick={wake}>
-          wake (~30s)
+          wake (~1–2 min)
         </button>
       )}
       {backendStatus === "checking" && (
